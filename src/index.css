@@ -28,3 +28,12 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+@keyframes deploy-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--accent); }
+  50%       { box-shadow: 0 0 0 4px var(--accent), 0 0 10px var(--accent); }
+}
+.deploy-target {
+  animation: deploy-pulse 0.9s ease-in-out infinite;
+  z-index: 1;
+}

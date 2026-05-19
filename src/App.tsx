@@ -6,7 +6,7 @@ import ActionPanel from './components/ActionPanel/ActionPanel';
 import EventLog from './components/EventLog/EventLog';
 import SetupScreen from './components/SetupScreen/SetupScreen';
 import SectorDetail from './components/SectorDetail/SectorDetail';
-import type { VictoryType } from './types/game';
+import type { Gang, VictoryType } from './types/game';
 
 const VICTORY_LABELS: Record<VictoryType, string> = {
   elimination: 'Elimination',
@@ -19,18 +19,39 @@ const VICTORY_LABELS: Record<VictoryType, string> = {
 const ALERT_LABELS = ['Clear', 'Quiet', 'Patrols', 'Patrols+', 'Squad', 'Crackdown'];
 
 export default function App() {
-  const { turn, phase, players, grid, alertSystem, winner, victoryCondition, resetGame } = useGameStore();
+  const { turn, phase, players, grid, alertSystem, winner, victoryCondition, resetGame, recruitGang } = useGameStore();
 
-  const [sectorView, setSectorView] = useState<[number, number] | null>(null);
+  const [sectorView, setSectorView]     = useState<[number, number] | null>(null);
+  const [pendingDeploy, setPendingDeploy] = useState<Gang | null>(null);
 
-  if (players.length === 0) {
-    return <SetupScreen />;
-  }
+  if (players.length === 0) return <SetupScreen />;
 
   const human = players.find(p => p.isHuman)!;
-  const ai = players.find(p => !p.isHuman)!;
+  const ai    = players.find(p => !p.isHuman)!;
+
+  const ownedSectors = grid.sectors.flat().filter(s => s.owner === human.id);
+
+  function handleHireRequest(gang: Gang) {
+    if (ownedSectors.length <= 1) {
+      const pos = ownedSectors.length === 1 ? ownedSectors[0].position : human.hqSector;
+      recruitGang(gang.id, human.id, pos);
+    } else {
+      setPendingDeploy(gang);
+    }
+  }
 
   function handleSectorClick(pos: [number, number]) {
+    const sector = grid.sectors[pos[0]]?.[pos[1]];
+    if (!sector) return;
+
+    if (pendingDeploy) {
+      if (sector.owner === human.id) {
+        recruitGang(pendingDeploy.id, human.id, pos);
+        setPendingDeploy(null);
+      }
+      return;
+    }
+
     setSectorView(pos);
   }
 
@@ -74,18 +95,44 @@ export default function App() {
         <CityGrid
           selectedPos={sectorView}
           onSectorClick={handleSectorClick}
+          deployMode={!!pendingDeploy}
+          humanId={human.id}
         />
       </div>
 
       {/* Bottom panel */}
       <div className="flex-1 border-t overflow-y-auto" style={{ borderColor: 'var(--border)', touchAction: 'pan-y' }}>
-        {viewedSector ? (
+
+        {/* Deploy mode instruction */}
+        {pendingDeploy && (
+          <div className="flex items-center justify-between px-3 py-3 border-b"
+            style={{ borderColor: 'var(--accent) + "44"', background: 'var(--accent)18' }}>
+            <div>
+              <div className="text-xs font-bold" style={{ color: 'var(--accent)' }}>
+                Deploy {pendingDeploy.portrait} {pendingDeploy.name}
+              </div>
+              <div className="text-[10px] mt-[2px]" style={{ color: 'var(--text-dim)' }}>
+                Tap a glowing sector on the map
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPendingDeploy(null)}
+              className="text-xs px-2 py-1 rounded border"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-dim)', touchAction: 'manipulation' }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {!pendingDeploy && viewedSector ? (
           <SectorDetail
             sector={viewedSector}
             players={players}
             onClose={() => setSectorView(null)}
           />
-        ) : winner ? (
+        ) : !pendingDeploy && winner ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
             <div className="text-4xl">{winner.isHuman ? '🏆' : '💀'}</div>
             <div className="font-bold text-lg" style={{ color: winner.isHuman ? 'var(--accent)' : 'var(--danger)' }}>
@@ -101,13 +148,13 @@ export default function App() {
               Play Again
             </button>
           </div>
-        ) : phase === 'recruit' ? (
-          <RecruitPanel />
-        ) : phase === 'orders' ? (
+        ) : !pendingDeploy && phase === 'recruit' ? (
+          <RecruitPanel onHireRequest={handleHireRequest} />
+        ) : !pendingDeploy && phase === 'orders' ? (
           <ActionPanel />
-        ) : (
+        ) : !pendingDeploy ? (
           <EventLog />
-        )}
+        ) : null}
       </div>
     </div>
   );

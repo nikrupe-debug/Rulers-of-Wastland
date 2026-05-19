@@ -8,10 +8,11 @@ interface Props {
   players: Player[];
   isHQ: boolean;
   selected: boolean;
+  isDeployTarget: boolean;
   onClick: () => void;
 }
 
-export default function Sector({ sector, players, isHQ, selected, onClick }: Props) {
+export default function Sector({ sector, players, isHQ, selected, isDeployTarget, onClick }: Props) {
   const owner = players.find(p => p.id === sector.owner);
 
   const claimingPlayer = !owner && sector.controllingPlayerId
@@ -54,6 +55,7 @@ export default function Sector({ sector, players, isHQ, selected, onClick }: Pro
       type="button"
       onTouchEnd={handleTouch}
       onClick={onClick}
+      className={isDeployTarget ? 'deploy-target' : ''}
       style={{
         cursor: 'pointer',
         touchAction: 'manipulation',

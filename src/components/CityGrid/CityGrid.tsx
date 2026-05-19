@@ -4,9 +4,11 @@ import Sector from './Sector';
 interface Props {
   selectedPos: [number, number] | null;
   onSectorClick: (pos: [number, number]) => void;
+  deployMode?: boolean;
+  humanId?: string;
 }
 
-export default function CityGrid({ selectedPos, onSectorClick }: Props) {
+export default function CityGrid({ selectedPos, onSectorClick, deployMode = false, humanId }: Props) {
   const { grid, players } = useGameStore();
 
   if (!grid.sectors.length) return null;
@@ -20,6 +22,7 @@ export default function CityGrid({ selectedPos, onSectorClick }: Props) {
           {row.map((sector, colIdx) => {
             const isHQ = hqPositions.some(([r, c]) => r === rowIdx && c === colIdx);
             const isSelected = selectedPos !== null && selectedPos[0] === rowIdx && selectedPos[1] === colIdx;
+            const isDeployTarget = deployMode && humanId !== undefined && sector.owner === humanId;
             return (
               <Sector
                 key={`${rowIdx}-${colIdx}`}
@@ -27,6 +30,7 @@ export default function CityGrid({ selectedPos, onSectorClick }: Props) {
                 players={players}
                 isHQ={isHQ}
                 selected={isSelected}
+                isDeployTarget={isDeployTarget}
                 onClick={() => onSectorClick([rowIdx, colIdx])}
               />
             );
