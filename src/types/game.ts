@@ -26,6 +26,8 @@ export interface Building {
   owner: string | null;
   controlled: boolean;
   bonus: BuildingBonus;
+  controlProgress: number;       // 0–10
+  controllingPlayerId: string | null;
 }
 
 export interface Equipment {

@@ -1,9 +1,12 @@
 import { useEffect } from 'react';
 import { useGameStore } from './store/gameStore';
 import CityGrid from './components/CityGrid/CityGrid';
+import RecruitPanel from './components/RecruitPanel/RecruitPanel';
+import ActionPanel from './components/ActionPanel/ActionPanel';
+import EventLog from './components/EventLog/EventLog';
 
 export default function App() {
-  const { initGame, turn, phase, players, alertSystem } = useGameStore();
+  const { initGame, turn, phase, players, alertSystem, winner } = useGameStore();
 
   useEffect(() => {
     initGame('Player 1', 'medium');
@@ -30,7 +33,7 @@ export default function App() {
         <div className="flex justify-between px-3 py-2 text-xs border-b" style={{ borderColor: 'var(--border)' }}>
           <div className="flex flex-col gap-[2px]">
             <span className="font-bold" style={{ color: human.color }}>{human.name}</span>
-            <span>💰 ${human.cash} · ⭐ {human.prestige} · 🔫 {human.gangs.length}</span>
+            <span>${human.cash} · {human.prestige}★ · {human.gangs.filter(g=>g.status!=='dead').length} gangs</span>
           </div>
           <div className="text-center">
             <div className="text-[10px]" style={{ color: 'var(--text-dim)' }}>ALERT</div>
@@ -40,26 +43,41 @@ export default function App() {
           </div>
           <div className="flex flex-col gap-[2px] items-end">
             <span className="font-bold" style={{ color: ai.color }}>{ai.name}</span>
-            <span>💰 ${ai.cash} · ⭐ {ai.prestige} · 🔫 {ai.gangs.length}</span>
+            <span>${ai.cash} · {ai.prestige}★ · {ai.gangs.filter(g=>g.status!=='dead').length} gangs</span>
           </div>
         </div>
       )}
 
       {/* Grid */}
-      <main className="flex flex-1 items-start justify-center pt-4">
+      <div className="flex justify-center pt-2">
         <CityGrid />
-      </main>
+      </div>
 
-      {/* Legend */}
-      <footer className="flex gap-4 justify-center px-3 py-2 text-[10px]" style={{ color: 'var(--text-dim)' }}>
-        {players.map(p => (
-          <span key={p.id} className="flex items-center gap-1">
-            <span className="inline-block w-2 h-2 rounded-sm" style={{ background: p.color }} />
-            {p.name}
-          </span>
-        ))}
-        <span>⬜ Neutral</span>
-      </footer>
+      {/* Bottom panel — phase-dependent */}
+      <div className="flex-1 border-t overflow-y-auto" style={{ borderColor: 'var(--border)' }}>
+        {winner ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
+            <div className="text-4xl">{winner.isHuman ? '🏆' : '💀'}</div>
+            <div className="font-bold text-lg" style={{ color: winner.isHuman ? 'var(--accent)' : 'var(--danger)' }}>
+              {winner.isHuman ? 'Victory!' : 'Defeat.'}
+            </div>
+            <div className="text-sm" style={{ color: 'var(--text-dim)' }}>{winner.name} rules the wasteland.</div>
+            <button
+              onClick={() => initGame('Player 1', 'medium')}
+              className="mt-2 px-4 py-2 rounded font-bold text-sm"
+              style={{ background: 'var(--accent)', color: '#000' }}
+            >
+              Play Again
+            </button>
+          </div>
+        ) : phase === 'recruit' ? (
+          <RecruitPanel />
+        ) : phase === 'orders' ? (
+          <ActionPanel />
+        ) : (
+          <EventLog />
+        )}
+      </div>
     </div>
   );
 }

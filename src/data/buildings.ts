@@ -47,6 +47,8 @@ export function createBuilding(type: BuildingType): Building {
     owner: null,
     controlled: false,
     bonus: BUILDING_BONUSES[type],
+    controlProgress: 0,
+    controllingPlayerId: null,
   };
 }
 

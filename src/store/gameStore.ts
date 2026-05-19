@@ -5,6 +5,7 @@ import type {
 } from '../types/game';
 import { GANG_ROSTER, createGangInstance } from '../data/gangs';
 import { createBuilding, randomBuildingTypes } from '../data/buildings';
+import { resolveFullTurn } from '../game/engine';
 
 // ── Grid initialisation ──────────────────────────────────────────────────────
 
@@ -73,7 +74,8 @@ interface GameStore extends GameState {
 
   // Phase control
   setPhase: (phase: Phase) => void;
-  endTurn: () => void;
+  skipRecruit: () => void;
+  resolveOrders: () => void;
 
   // Gang actions
   assignAction: (gangId: string, action: GangAction) => void;
@@ -133,11 +135,25 @@ export const useGameStore = create<GameStore>((set, _get) => ({
 
   setPhase: (phase) => set({ phase }),
 
-  endTurn: () => set((state) => ({
-    turn: state.turn + 1,
-    phase: 'recruit',
-    availableGangs: pickAvailableGangs(),
-  })),
+  skipRecruit: () => set({ phase: 'orders' }),
+
+  resolveOrders: () => set((state) => {
+    const result = resolveFullTurn(state);
+    const newAlertRaw = (state.alertSystem.level as number) + result.alertDelta;
+    const newAlertLevel = Math.min(5, Math.max(0, newAlertRaw)) as AlertLevel;
+    const newEntries: LogEntry[] = result.log.map(e => ({ ...e, turn: state.turn }));
+
+    return {
+      players: result.players,
+      grid: result.grid,
+      winner: result.winner,
+      phase: result.winner ? 'end' : 'recruit',
+      turn: result.winner ? state.turn : state.turn + 1,
+      availableGangs: result.winner ? state.availableGangs : pickAvailableGangs(),
+      eventLog: [...newEntries, ...state.eventLog].slice(0, 100),
+      alertSystem: { level: newAlertLevel, triggers: [] },
+    };
+  }),
 
   // ── Gang management ──────────────────────────────────────────────────────
 
