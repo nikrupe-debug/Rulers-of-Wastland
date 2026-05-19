@@ -5,6 +5,7 @@ import type {
 } from '../types/game';
 import { GANG_ROSTER, createGangInstance } from '../data/gangs';
 import { createBuilding, randomBuildingTypes } from '../data/buildings';
+import { getNeighborhoodName } from '../data/neighborhoods';
 import { resolveFullTurn } from '../game/engine';
 
 // ── Grid initialisation ──────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ function buildGrid(): CityGrid {
       const buildingTypes = randomBuildingTypes(3, seed);
       sectors[row][col] = {
         position: [row, col],
+        name: getNeighborhoodName(row, col),
         owner: null,
         controlProgress: 0,
         controllingPlayerId: null,
@@ -92,7 +94,7 @@ interface GameStore extends GameState {
 
   // Gang actions
   assignAction: (gangId: string, action: GangAction) => void;
-  recruitGang: (gangId: string, playerId: string) => void;
+  recruitGang: (gangId: string, playerId: string, position: [number, number]) => void;
 
   // Log
   addLog: (entry: Omit<LogEntry, 'turn'>) => void;
@@ -205,7 +207,7 @@ export const useGameStore = create<GameStore>((set, _get) => ({
     return { players };
   }),
 
-  recruitGang: (gangId, playerId) => set((state) => {
+  recruitGang: (gangId, playerId, position) => set((state) => {
     const gang = state.availableGangs.find(g => g.id === gangId);
     if (!gang) return state;
 
@@ -215,7 +217,7 @@ export const useGameStore = create<GameStore>((set, _get) => ({
       return {
         ...p,
         cash: p.cash - gang.hiringCost,
-        gangs: [...p.gangs, { ...gang, position: p.hqSector }],
+        gangs: [...p.gangs, { ...gang, position }],
       };
     });
     const availableGangs = state.availableGangs.filter(g => g.id !== gangId);

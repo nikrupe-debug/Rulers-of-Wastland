@@ -74,6 +74,7 @@ export interface Gang {
 
 export interface Sector {
   position: [number, number];
+  name: string;
   owner: string | null;
   controlProgress: number;
   controllingPlayerId: string | null;

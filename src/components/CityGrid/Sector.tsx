@@ -7,12 +7,13 @@ interface Props {
   sector: SectorType;
   players: Player[];
   isHQ: boolean;
+  selected: boolean;
+  onClick: () => void;
 }
 
-export default function Sector({ sector, players, isHQ }: Props) {
+export default function Sector({ sector, players, isHQ, selected, onClick }: Props) {
   const owner = players.find(p => p.id === sector.owner);
 
-  // Show claiming progress when sector is contested but not yet owned
   const claimingPlayer = !owner && sector.controllingPlayerId
     ? players.find(p => p.id === sector.controllingPlayerId)
     : null;
@@ -20,82 +21,120 @@ export default function Sector({ sector, players, isHQ }: Props) {
     ? Math.round((sector.controlProgress / TERRITORY_THRESHOLD) * 100)
     : 0;
 
-  const bgColor    = owner ? owner.color : '#1a1a24';
-  const borderColor = isHQ
+  const bgColor = owner ? owner.color + '55' : '#1a1a24';
+  const borderColor = selected
     ? '#ffffff'
-    : claimingPlayer
-      ? claimingPlayer.color
-      : owner
-        ? owner.color
-        : '#2a2a3a';
-  const borderStyle = claimingPlayer ? 'dashed' : 'solid';
-  const borderWidth = isHQ || claimingPlayer ? 2 : 1;
+    : isHQ
+      ? '#ffffffaa'
+      : claimingPlayer
+        ? claimingPlayer.color
+        : owner
+          ? owner.color
+          : '#2a2a3a';
+  const borderStyle = !selected && claimingPlayer ? 'dashed' : 'solid';
+  const borderWidth = selected || isHQ || claimingPlayer ? 2 : 1;
 
   const gangsHere = players.flatMap(p =>
     p.gangs.filter(g =>
+      g.status !== 'dead' &&
       g.position?.[0] === sector.position[0] &&
       g.position?.[1] === sector.position[1]
     )
   );
 
+  const shortName = sector.name.split(' ')[0].slice(0, 6);
+
   return (
-    <div
-      className="relative flex flex-col items-center justify-center select-none overflow-hidden"
+    <button
+      type="button"
+      onClick={onClick}
       style={{
+        cursor: 'pointer',
+        touchAction: 'manipulation',
+        WebkitTapHighlightColor: 'transparent',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
         width: 'calc(100vw / 8)',
         height: 'calc(100vw / 8)',
-        maxWidth: 64,
-        maxHeight: 64,
+        maxWidth: '64px',
+        maxHeight: '64px',
         backgroundColor: bgColor,
         border: `${borderWidth}px ${borderStyle} ${borderColor}`,
-        opacity: owner ? 0.85 : 1,
         boxSizing: 'border-box',
+        padding: 0,
+        outline: 'none',
+        background: bgColor,
       }}
     >
-      {/* HQ indicator */}
+      {/* Neighborhood name */}
+      <span style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        fontSize: '5px',
+        lineHeight: 1,
+        paddingTop: '2px',
+        color: owner ? '#fff' : '#6b6b8a',
+        fontWeight: 600,
+        pointerEvents: 'none',
+        textShadow: owner ? '0 0 3px rgba(0,0,0,0.9)' : 'none',
+      }}>
+        {shortName}
+      </span>
+
+      {/* HQ label */}
       {isHQ && (
-        <span className="absolute top-0 left-0 text-[8px] leading-none p-[1px] font-bold text-white">
-          HQ
-        </span>
+        <span style={{
+          position: 'absolute',
+          top: '7px',
+          left: 0,
+          right: 0,
+          textAlign: 'center',
+          fontSize: '7px',
+          lineHeight: 1,
+          fontWeight: 700,
+          color: '#fff',
+          pointerEvents: 'none',
+          textShadow: '0 0 4px #000',
+        }}>HQ</span>
       )}
 
       {/* Building icons */}
-      <div className="flex flex-wrap justify-center gap-[1px]">
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1px', marginTop: '6px', pointerEvents: 'none' }}>
         {sector.buildings.slice(0, 3).map(b => (
-          <span key={b.id} className="text-[8px] leading-none">
+          <span key={b.id} style={{ fontSize: '8px', lineHeight: 1 }}>
             {BUILDING_ICONS[b.type]}
           </span>
         ))}
       </div>
 
-      {/* Gang dot indicators */}
+      {/* Gang dots */}
       {gangsHere.length > 0 && (
-        <div className="absolute bottom-[4px] right-[2px] flex gap-[1px]">
+        <div style={{ position: 'absolute', bottom: '4px', right: '2px', display: 'flex', gap: '1px', pointerEvents: 'none' }}>
           {gangsHere.slice(0, 3).map(g => {
             const gOwner = players.find(p => p.gangs.some(pg => pg.id === g.id));
             return (
-              <div
-                key={g.id}
-                className="w-[6px] h-[6px] rounded-full"
-                style={{ backgroundColor: gOwner?.color ?? '#fff' }}
-              />
+              <div key={g.id} style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: gOwner?.color ?? '#fff' }} />
             );
           })}
           {gangsHere.length > 3 && (
-            <span className="text-[6px] text-white">+{gangsHere.length - 3}</span>
+            <span style={{ fontSize: '5px', color: '#fff' }}>+{gangsHere.length - 3}</span>
           )}
         </div>
       )}
 
-      {/* Territory claim progress bar — thin strip at bottom */}
+      {/* Claim progress bar */}
       {claimingPlayer && (
-        <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: '#1a1a24' }}>
-          <div
-            className="h-full"
-            style={{ width: `${claimPct}%`, background: claimingPlayer.color }}
-          />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: '#1a1a24' }}>
+          <div style={{ height: '100%', width: `${claimPct}%`, background: claimingPlayer.color }} />
         </div>
       )}
-    </div>
+    </button>
   );
 }

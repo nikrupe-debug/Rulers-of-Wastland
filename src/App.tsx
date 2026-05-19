@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useGameStore } from './store/gameStore';
 import CityGrid from './components/CityGrid/CityGrid';
 import RecruitPanel from './components/RecruitPanel/RecruitPanel';
 import ActionPanel from './components/ActionPanel/ActionPanel';
 import EventLog from './components/EventLog/EventLog';
 import SetupScreen from './components/SetupScreen/SetupScreen';
+import SectorDetail from './components/SectorDetail/SectorDetail';
 import type { VictoryType } from './types/game';
 
 const VICTORY_LABELS: Record<VictoryType, string> = {
@@ -17,7 +19,9 @@ const VICTORY_LABELS: Record<VictoryType, string> = {
 const ALERT_LABELS = ['Clear', 'Quiet', 'Patrols', 'Patrols+', 'Squad', 'Crackdown'];
 
 export default function App() {
-  const { turn, phase, players, alertSystem, winner, victoryCondition, resetGame } = useGameStore();
+  const { turn, phase, players, grid, alertSystem, winner, victoryCondition, resetGame } = useGameStore();
+
+  const [sectorView, setSectorView] = useState<[number, number] | null>(null);
 
   if (players.length === 0) {
     return <SetupScreen />;
@@ -25,6 +29,14 @@ export default function App() {
 
   const human = players.find(p => p.isHuman)!;
   const ai = players.find(p => !p.isHuman)!;
+
+  function handleSectorClick(pos: [number, number]) {
+    setSectorView(prev =>
+      prev && prev[0] === pos[0] && prev[1] === pos[1] ? null : pos
+    );
+  }
+
+  const viewedSector = sectorView ? grid.sectors[sectorView[0]]?.[sectorView[1]] : null;
 
   return (
     <div className="flex flex-col min-h-dvh" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
@@ -60,13 +72,22 @@ export default function App() {
       </div>
 
       {/* Grid */}
-      <div className="flex justify-center pt-2">
-        <CityGrid />
+      <div className="flex justify-center pt-2 pb-1">
+        <CityGrid
+          selectedPos={sectorView}
+          onSectorClick={handleSectorClick}
+        />
       </div>
 
-      {/* Bottom panel — phase-dependent */}
-      <div className="flex-1 border-t overflow-y-auto" style={{ borderColor: 'var(--border)' }}>
-        {winner ? (
+      {/* Bottom panel */}
+      <div className="flex-1 border-t overflow-y-auto" style={{ borderColor: 'var(--border)', touchAction: 'pan-y' }}>
+        {viewedSector ? (
+          <SectorDetail
+            sector={viewedSector}
+            players={players}
+            onClose={() => setSectorView(null)}
+          />
+        ) : winner ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
             <div className="text-4xl">{winner.isHuman ? '🏆' : '💀'}</div>
             <div className="font-bold text-lg" style={{ color: winner.isHuman ? 'var(--accent)' : 'var(--danger)' }}>
@@ -74,6 +95,7 @@ export default function App() {
             </div>
             <div className="text-sm" style={{ color: 'var(--text-dim)' }}>{winner.name} rules the wasteland.</div>
             <button
+              type="button"
               onClick={resetGame}
               className="mt-2 px-4 py-2 rounded font-bold text-sm"
               style={{ background: 'var(--accent)', color: '#000' }}
