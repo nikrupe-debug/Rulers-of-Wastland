@@ -1,7 +1,56 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { BUILDING_LABELS, BUILDING_DESCRIPTIONS } from '../../data/buildings';
 import type { Gang, GangAction } from '../../types/game';
 import { getAdjacentPositions } from '../../utils/grid';
+
+function directionLabel(from: [number, number], to: [number, number]): string {
+  const dr = to[0] - from[0];
+  const dc = to[1] - from[1];
+  const v = dr < 0 ? 'North' : dr > 0 ? 'South' : '';
+  const h = dc < 0 ? 'West' : dc > 0 ? 'East' : '';
+  return `Move ${v}${h}`.trim();
+}
+
+function StatBar({ label, value, max }: { label: string; value: number; max: number }) {
+  const pct = Math.round((value / max) * 100);
+  return (
+    <div className="flex items-center gap-1 text-[10px]">
+      <span className="w-12 shrink-0" style={{ color: 'var(--text-dim)' }}>{label}</span>
+      <div className="flex-1 rounded-full h-1.5 overflow-hidden" style={{ background: 'var(--border)' }}>
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--accent)' }} />
+      </div>
+      <span className="w-5 text-right" style={{ color: 'var(--text-dim)' }}>{value}</span>
+    </div>
+  );
+}
+
+function GangCard({ gang }: { gang: Gang }) {
+  return (
+    <div className="rounded border p-2 mb-2 text-xs" style={{ borderColor: 'var(--accent)', background: 'var(--surface)' }}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-2xl">{gang.portrait}</span>
+        <div>
+          <div className="font-bold" style={{ color: 'var(--accent)' }}>{gang.name}</div>
+          <div style={{ color: 'var(--text-dim)' }}>{gang.flavor}</div>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1 mb-2">
+        <StatBar label="Combat"  value={gang.combat}   max={10} />
+        <StatBar label="Ranged"  value={gang.ranged}   max={10} />
+        <StatBar label="Stealth" value={gang.stealth}  max={10} />
+        <StatBar label="Control" value={gang.control}  max={10} />
+      </div>
+      <div className="flex justify-between" style={{ color: 'var(--text-dim)' }}>
+        <span>❤️ {gang.morale}/{gang.maxMorale}</span>
+        <span>Pos [{gang.position?.join(',') ?? '–'}]</span>
+        {gang.equipment.length > 0 && (
+          <span>{gang.equipment.map(e => e.name).join(', ')}</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ActionPanel() {
   const { players, grid, assignAction, resolveOrders } = useGameStore();
@@ -16,23 +65,22 @@ export default function ActionPanel() {
     const actions: { label: string; action: GangAction }[] = [];
     if (!gang.position) return actions;
 
-    // Move — adjacent sectors
     getAdjacentPositions(gang.position).forEach(pos => {
-      actions.push({ label: `Move → [${pos[0]},${pos[1]}]`, action: { type: 'move', target: pos } });
+      actions.push({ label: directionLabel(gang.position!, pos), action: { type: 'move', target: pos } });
     });
 
-    // Control — buildings in current sector
     const sector = grid.sectors[gang.position[0]][gang.position[1]];
     sector.buildings
       .filter(b => b.owner !== human.id)
       .forEach(b => {
+        const label = BUILDING_LABELS[b.type];
+        const desc  = BUILDING_DESCRIPTIONS[b.type];
         actions.push({
-          label: `Control ${b.type.replace('_', ' ')} (${b.controlProgress}/10)`,
+          label: `Control ${label} — ${desc} (${b.controlProgress}/10)`,
           action: { type: 'control', targetBuildingId: b.id },
         });
       });
 
-    // Attack — enemy gangs in same or adjacent sector
     ai.gangs
       .filter(g => g.status === 'active' && g.position &&
         Math.max(
@@ -46,7 +94,6 @@ export default function ActionPanel() {
         });
       });
 
-    // Heal / Hide
     if (gang.morale < gang.maxMorale) {
       actions.push({ label: 'Heal', action: { type: 'heal' } });
     }
@@ -70,7 +117,6 @@ export default function ActionPanel() {
         </button>
       </div>
 
-      {/* Gang list */}
       <div className="flex flex-col gap-2">
         {activeGangs.map(gang => (
           <div key={gang.id}>
@@ -94,19 +140,21 @@ export default function ActionPanel() {
               </div>
             </button>
 
-            {/* Action picker */}
             {selected === gang.id && (
-              <div className="mt-1 flex flex-col gap-1 pl-2">
-                {getActions(gang).map((opt, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { assignAction(gang.id, opt.action); setSelected(null); }}
-                    className="text-left text-xs px-3 py-1 rounded border"
-                    style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="mt-1 pl-2">
+                <GangCard gang={gang} />
+                <div className="flex flex-col gap-1">
+                  {getActions(gang).map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { assignAction(gang.id, opt.action); setSelected(null); }}
+                      className="text-left text-xs px-3 py-1 rounded border"
+                      style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>

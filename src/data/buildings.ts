@@ -22,6 +22,17 @@ export const BUILDING_LABELS: Record<BuildingType, string> = {
   media_tower:  'Media Tower',
 };
 
+export const BUILDING_DESCRIPTIONS: Record<BuildingType, string> = {
+  hospital:     '+Heal speed for gangs in sector',
+  factory:      'Equipment costs 25% less',
+  bank:         '+$50 income per turn',
+  research_lab: 'Research speed ×2',
+  police_hq:    'Raises alert when held by enemy',
+  nightclub:    '+5 prestige on capture',
+  warehouse:    '+2 equipment slots',
+  media_tower:  '+2 prestige per turn',
+};
+
 export const BUILDING_ICONS: Record<BuildingType, string> = {
   hospital:     '🏥',
   factory:      '🏭',
