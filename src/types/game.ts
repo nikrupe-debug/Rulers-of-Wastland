@@ -41,12 +41,13 @@ export interface Equipment {
 }
 
 export type GangAction =
-  | { type: 'move';    target: [number, number] }
-  | { type: 'attack';  targetGangId: string }
-  | { type: 'control'; targetBuildingId: string }
-  | { type: 'extort';  targetBuildingId: string }
-  | { type: 'research'; techId: string }
-  | { type: 'equip';   equipmentId: string }
+  | { type: 'move';      target: [number, number] }
+  | { type: 'attack';    targetGangId: string }
+  | { type: 'territory'; targetSector: [number, number] }
+  | { type: 'control';   targetBuildingId: string }
+  | { type: 'extort';    targetBuildingId: string }
+  | { type: 'research';  techId: string }
+  | { type: 'equip';     equipmentId: string }
   | { type: 'bribe' }
   | { type: 'hide' }
   | { type: 'heal' };
@@ -74,6 +75,8 @@ export interface Gang {
 export interface Sector {
   position: [number, number];
   owner: string | null;
+  controlProgress: number;
+  controllingPlayerId: string | null;
   buildings: Building[];
   gangsPresent: string[]; // gang ids
 }

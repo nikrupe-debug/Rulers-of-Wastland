@@ -19,6 +19,8 @@ function buildGrid(): CityGrid {
       sectors[row][col] = {
         position: [row, col],
         owner: null,
+        controlProgress: 0,
+        controllingPlayerId: null,
         buildings: buildingTypes.map(t => createBuilding(t)),
         gangsPresent: [],
       };

@@ -41,19 +41,24 @@ function chooseAction(
   }
 
   const sector = state.grid.sectors[pos[0]][pos[1]];
-  const uncontrolledBuilding = sector.buildings.find(
-    b => b.owner !== ai.id
-  );
 
   // Score possible actions
   const scores: { action: GangAction; score: number }[] = [];
 
-  // Control a building in current sector
-  if (uncontrolledBuilding) {
+  // Claim territory first, then control buildings
+  if (sector.owner !== ai.id) {
     scores.push({
-      action: { type: 'control', targetBuildingId: uncontrolledBuilding.id },
-      score: w.expansion * gang.control + (uncontrolledBuilding.type === 'bank' ? w.economy * 2 : 0),
+      action: { type: 'territory', targetSector: pos },
+      score: w.expansion * gang.control * 1.5,
     });
+  } else {
+    const uncontrolledBuilding = sector.buildings.find(b => b.owner !== ai.id);
+    if (uncontrolledBuilding) {
+      scores.push({
+        action: { type: 'control', targetBuildingId: uncontrolledBuilding.id },
+        score: w.expansion * gang.control + (uncontrolledBuilding.type === 'bank' ? w.economy * 2 : 0),
+      });
+    }
   }
 
   // Attack a human gang in same sector

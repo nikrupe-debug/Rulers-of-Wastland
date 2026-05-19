@@ -6,6 +6,7 @@ import { isAdjacent } from '../utils/grid';
 import { d6, pick } from '../utils/dice';
 import { TECH_TREE } from '../data/techs';
 
+const TERRITORY_THRESHOLD = 5;
 const CONTROL_THRESHOLD = 10;
 const BASE_INCOME = 100;
 const HEAL_RATE = 2;
@@ -50,6 +51,48 @@ export function resolveFullTurn(state: GameState): ResolutionResult {
   // Step 3: Sync gangsPresent on grid
   grid = syncGangsPresent(grid, players);
 
+  // Step 3b: Process TERRITORY actions (claim sectors)
+  for (const player of players) {
+    for (const gang of player.gangs) {
+      if (gang.status !== 'active' || gang.currentAction?.type !== 'territory') continue;
+      if (!gang.position) continue;
+      const sector = grid.sectors[gang.position[0]][gang.position[1]];
+      if (sector.owner === player.id) continue;
+
+      if (sector.controllingPlayerId && sector.controllingPlayerId !== player.id) {
+        sector.controlProgress = 0;
+      }
+      sector.controllingPlayerId = player.id;
+      sector.controlProgress = Math.min(TERRITORY_THRESHOLD, sector.controlProgress + gang.control);
+
+      if (sector.controlProgress >= TERRITORY_THRESHOLD) {
+        const prevOwner = sector.owner;
+        sector.owner = player.id;
+        sector.controlProgress = 0;
+        sector.controllingPlayerId = null;
+        // Enemy buildings revert to neutral when territory changes hands
+        for (const building of sector.buildings) {
+          if (building.owner !== player.id) {
+            building.owner = null;
+            building.controlled = false;
+            building.controlProgress = 0;
+            building.controllingPlayerId = null;
+          }
+        }
+        log.push({
+          message: `${gang.name} claims sector [${gang.position}]${prevOwner ? ` from ${players.find(p => p.id === prevOwner)?.name}` : ''}!`,
+          type: 'control',
+        });
+        if (prevOwner && prevOwner !== player.id) alertDelta += 1;
+      } else {
+        log.push({
+          message: `${gang.name} contests [${gang.position}] (${sector.controlProgress}/${TERRITORY_THRESHOLD})`,
+          type: 'control',
+        });
+      }
+    }
+  }
+
   // Step 4: Process ATTACK actions (melee)
   for (const player of players) {
     for (const gang of player.gangs) {
@@ -88,6 +131,7 @@ export function resolveFullTurn(state: GameState): ResolutionResult {
       const buildingId = gang.currentAction.targetBuildingId;
       if (!gang.position) continue;
       const sector = grid.sectors[gang.position[0]][gang.position[1]];
+      if (sector.owner !== player.id) continue; // must claim territory first
       const building = sector.buildings.find(b => b.id === buildingId);
       if (!building || building.owner === player.id) continue;
 
