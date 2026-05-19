@@ -5,7 +5,7 @@ import { TECH_TREE } from '../../data/techs';
 import type { Gang, GangAction, BuildingType } from '../../types/game';
 import { getAdjacentPositions } from '../../utils/grid';
 
-const TERRITORY_THRESHOLD = 5;
+const TERRITORY_THRESHOLD = 10;
 const BRIBE_COST = 150;
 
 interface ActionItem {

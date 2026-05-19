@@ -6,7 +6,7 @@ import { isAdjacent } from '../utils/grid';
 import { d6, pick } from '../utils/dice';
 import { TECH_TREE } from '../data/techs';
 
-const TERRITORY_THRESHOLD = 5;
+const TERRITORY_THRESHOLD = 10;
 const CONTROL_THRESHOLD = 10;
 const BASE_INCOME = 100;
 const HEAL_RATE = 2;
