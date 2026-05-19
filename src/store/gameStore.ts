@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type {
   GameState, Player, Gang, Sector, CityGrid,
-  GangAction, LogEntry, Phase, AIDifficulty, AlertLevel,
+  GangAction, LogEntry, Phase, AIDifficulty, AlertLevel, VictoryType,
 } from '../types/game';
 import { GANG_ROSTER, createGangInstance } from '../data/gangs';
 import { createBuilding, randomBuildingTypes } from '../data/buildings';
@@ -70,7 +70,8 @@ function pickAvailableGangs(): Gang[] {
 
 interface GameStore extends GameState {
   // Setup
-  initGame: (humanName: string, difficulty: AIDifficulty) => void;
+  initGame: (humanName: string, difficulty: AIDifficulty, victoryMode?: VictoryType) => void;
+  resetGame: () => void;
 
   // Phase control
   setPhase: (phase: Phase) => void;
@@ -106,7 +107,9 @@ export const useGameStore = create<GameStore>((set, _get) => ({
 
   // ── Setup ────────────────────────────────────────────────────────────────
 
-  initGame: (humanName, difficulty) => {
+  resetGame: () => set({ players: [], turn: 0 }),
+
+  initGame: (humanName, difficulty, victoryMode = 'elimination') => {
     const grid = buildGrid();
     const [human, ai] = buildInitialPlayers(humanName, difficulty);
 
@@ -127,6 +130,7 @@ export const useGameStore = create<GameStore>((set, _get) => ({
         type: 'system',
       }],
       winner: null,
+      victoryCondition: { type: victoryMode },
       alertSystem: { level: 0 as AlertLevel, triggers: [] },
     });
   },

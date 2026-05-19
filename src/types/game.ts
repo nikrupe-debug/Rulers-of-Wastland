@@ -4,7 +4,7 @@ export type BuildingType =
   | 'hospital' | 'factory' | 'bank' | 'research_lab'
   | 'police_hq' | 'nightclub' | 'warehouse' | 'media_tower';
 export type EquipmentType = 'weapon' | 'armor' | 'gadget';
-export type VictoryType = 'elimination' | 'domination';
+export type VictoryType = 'elimination' | 'domination' | 'territory' | 'greed' | 'prestige';
 export type AlertLevel = 0 | 1 | 2 | 3 | 4 | 5;
 export type AIDifficulty = 'easy' | 'medium' | 'hard';
 export type TechTier = 1 | 2 | 3;

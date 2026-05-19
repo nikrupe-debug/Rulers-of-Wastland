@@ -3,7 +3,7 @@ import { resolveMelee } from './combat';
 import { pickAIActions } from './ai';
 import { checkVictory } from './victory';
 import { isAdjacent } from '../utils/grid';
-import { d6 } from '../utils/dice';
+import { d6, pick } from '../utils/dice';
 import { TECH_TREE } from '../data/techs';
 
 const CONTROL_THRESHOLD = 10;
@@ -220,13 +220,24 @@ export function resolveFullTurn(state: GameState): ResolutionResult {
       }
     }
     // Maintenance
-    const maintenance = player.gangs
-      .filter(g => g.status !== 'dead')
-      .reduce((sum, g) => sum + g.maintenanceCost, 0);
+    const activeGangs = player.gangs.filter(g => g.status !== 'dead');
+    const maintenance = activeGangs.reduce((sum, g) => sum + g.maintenanceCost, 0);
 
     player.cash += income - maintenance;
-    if (player.cash < 0) player.cash = 0;
-    log.push({ message: `${player.name}: +$${income} income, -$${maintenance} maintenance`, type: 'economy' });
+    log.push({ message: `${player.name}: +$${income} income, -$${maintenance} upkeep`, type: 'economy' });
+
+    // Desertion — fire most expensive gangs until solvent
+    if (player.cash < 0) {
+      const sorted = [...activeGangs].sort((a, b) => b.maintenanceCost - a.maintenanceCost);
+      while (player.cash < 0 && sorted.length > 0) {
+        const deserter = sorted.shift()!;
+        const idx = player.gangs.findIndex(g => g.id === deserter.id);
+        if (idx >= 0) player.gangs[idx].status = 'dead';
+        player.cash += deserter.maintenanceCost;
+        log.push({ message: `${deserter.name} deserts ${player.name} — can't make payroll!`, type: 'economy' });
+      }
+      if (player.cash < 0) player.cash = 0;
+    }
   }
 
   // Police HQ: any owned police_hq raises alert globally each turn
@@ -235,6 +246,56 @@ export function resolveFullTurn(state: GameState): ResolutionResult {
       for (const building of sector.buildings) {
         if (building.type === 'police_hq' && building.owner !== null) {
           alertDelta += 1;
+        }
+      }
+    }
+  }
+
+  // Step 8b: Police alert effects (based on alert level at TURN START)
+  const currentAlert = state.alertSystem.level as number;
+
+  if (currentAlert >= 5) {
+    // Crackdown — police hit top 2 players simultaneously
+    const withGangs = players.filter(p => p.gangs.some(g => g.status === 'active'));
+    for (const player of withGangs) {
+      const target = player.gangs.filter(g => g.status === 'active').sort((a, b) => b.morale - a.morale)[0];
+      if (target) {
+        target.morale = Math.max(0, target.morale - 3);
+        if (target.morale <= 0) target.status = 'dead';
+        log.push({ message: `CRACKDOWN: ${player.name}'s ${target.name} hit for 3 by police!`, type: 'system' });
+      }
+    }
+  } else if (currentAlert === 4) {
+    // Squad — targets most wanted player (most attack/extort actions this turn)
+    const heat = (p: typeof players[0]) =>
+      p.gangs.filter(g => g.currentAction?.type === 'attack' || g.currentAction?.type === 'extort').length;
+    const mostWanted = players.slice().sort((a, b) => heat(b) - heat(a))[0];
+    const target = mostWanted.gangs.filter(g => g.status === 'active').sort((a, b) => b.morale - a.morale)[0];
+    if (target) {
+      target.morale = Math.max(0, target.morale - 2);
+      if (target.morale <= 0) target.status = 'dead';
+      log.push({ message: `POLICE SQUAD raids ${mostWanted.name} — ${target.name} hit for 2!`, type: 'system' });
+      alertDelta += 1;
+    }
+  } else if (currentAlert >= 2) {
+    // Patrol — random sector, stealth check (d6 > stealth → caught, -1 morale)
+    const occupied: [number, number][] = [];
+    for (let r = 0; r < grid.sectors.length; r++)
+      for (let c = 0; c < grid.sectors[r].length; c++)
+        if (grid.sectors[r][c].gangsPresent.length > 0) occupied.push([r, c]);
+
+    const patrolChance = currentAlert === 3 ? 0.6 : 0.4;
+    if (occupied.length > 0 && Math.random() < patrolChance) {
+      const [pr, pc] = pick(occupied);
+      for (const player of players) {
+        for (const gang of player.gangs) {
+          if (gang.status !== 'active' || !gang.position) continue;
+          if (gang.position[0] !== pr || gang.position[1] !== pc) continue;
+          if (d6() > gang.stealth) {
+            gang.morale = Math.max(0, gang.morale - 1);
+            if (gang.morale <= 0) gang.status = 'dead';
+            log.push({ message: `Police patrol spots ${gang.name} at [${pr},${pc}]! -1 morale`, type: 'system' });
+          }
         }
       }
     }
