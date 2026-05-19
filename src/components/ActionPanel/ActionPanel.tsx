@@ -12,8 +12,6 @@ export default function ActionPanel() {
   const activeGangs = human.gangs.filter(g => g.status !== 'dead');
   const allActionsSet = activeGangs.every(g => g.currentAction !== null);
 
-  const selectedGang = activeGangs.find(g => g.id === selected) ?? null;
-
   function getActions(gang: Gang): { label: string; action: GangAction }[] {
     const actions: { label: string; action: GangAction }[] = [];
     if (!gang.position) return actions;

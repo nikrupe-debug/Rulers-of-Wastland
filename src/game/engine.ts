@@ -1,4 +1,4 @@
-import type { GameState, Gang, Player, LogEntry, AlertLevel } from '../types/game';
+import type { GameState, Player, LogEntry } from '../types/game';
 import { resolveMelee } from './combat';
 import { pickAIActions } from './ai';
 import { checkVictory } from './victory';
