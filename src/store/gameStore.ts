@@ -45,6 +45,7 @@ function buildInitialPlayers(
     unlockedTechs: [],
     researchProgress: {},
   };
+  const aiHQ: [number, number] = [7, 7];
   const ai: Player = {
     id: 'player_ai',
     name: 'The Overlord',
@@ -52,8 +53,8 @@ function buildInitialPlayers(
     aiDifficulty: difficulty,
     cash: 500,
     prestige: 0,
-    gangs: [],
-    hqSector: [7, 7],
+    gangs: pickAIStartingGangs(difficulty, aiHQ),
+    hqSector: aiHQ,
     color: '#cc3333',
     unlockedTechs: [],
     researchProgress: {},
@@ -66,6 +67,15 @@ function pickAvailableGangs(): Gang[] {
   return shuffled.slice(0, 3).map((t, i) =>
     createGangInstance(t, 'recruit_pool', i)
   );
+}
+
+function pickAIStartingGangs(difficulty: AIDifficulty, hqSector: [number, number]): Gang[] {
+  const count = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 2 : 3;
+  const shuffled = [...GANG_ROSTER].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count).map((t, i) => ({
+    ...createGangInstance(t, 'player_ai', i),
+    position: hqSector,
+  }));
 }
 
 // ── Store types ───────────────────────────────────────────────────────────────
@@ -144,7 +154,29 @@ export const useGameStore = create<GameStore>((set, _get) => ({
   skipRecruit: () => set({ phase: 'orders' }),
 
   resolveOrders: () => set((state) => {
-    const result = resolveFullTurn(state);
+    // AI auto-recruits if it has fewer than 2 active gangs and can afford one
+    let stateForResolution = state;
+    const aiPlayer = state.players.find(p => !p.isHuman);
+    if (aiPlayer) {
+      const activeCount = aiPlayer.gangs.filter(g => g.status !== 'dead').length;
+      if (activeCount < 2 && state.availableGangs.length > 0) {
+        const recruit = state.availableGangs.find(g => g.hiringCost <= aiPlayer.cash);
+        if (recruit) {
+          const newGang: Gang = { ...recruit, position: aiPlayer.hqSector };
+          stateForResolution = {
+            ...state,
+            players: state.players.map(p =>
+              !p.isHuman
+                ? { ...p, cash: p.cash - recruit.hiringCost, gangs: [...p.gangs, newGang] }
+                : p
+            ),
+            availableGangs: state.availableGangs.filter(g => g.id !== recruit.id),
+          };
+        }
+      }
+    }
+
+    const result = resolveFullTurn(stateForResolution);
     const newAlertRaw = (state.alertSystem.level as number) + result.alertDelta;
     const newAlertLevel = Math.min(5, Math.max(0, newAlertRaw)) as AlertLevel;
     const newEntries: LogEntry[] = result.log.map(e => ({ ...e, turn: state.turn }));

@@ -10,13 +10,18 @@ export default function RecruitPanel() {
         <span className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--accent)' }}>
           Recruit
         </span>
-        <button
-          onClick={skipRecruit}
-          className="text-xs px-3 py-1 rounded border"
-          style={{ borderColor: 'var(--border)', color: 'var(--text-dim)' }}
-        >
-          Skip →
-        </button>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-bold" style={{ color: 'var(--accent)' }}>
+            ${human.cash}
+          </span>
+          <button
+            onClick={skipRecruit}
+            className="text-xs px-3 py-1 rounded border"
+            style={{ borderColor: 'var(--border)', color: 'var(--text-dim)' }}
+          >
+            Skip →
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">

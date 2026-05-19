@@ -17,8 +17,9 @@ export function checkVictory(state: GameState): Player | null {
 function checkElimination({ players }: GameState): Player | null {
   for (const player of players) {
     const rivals = players.filter(p => p.id !== player.id);
+    // require rivals to have at least one gang ever (empty roster = game not started)
     if (
-      rivals.every(r => r.gangs.every(g => g.status === 'dead')) &&
+      rivals.every(r => r.gangs.length > 0 && r.gangs.every(g => g.status === 'dead')) &&
       player.gangs.some(g => g.status !== 'dead')
     ) return player;
   }
