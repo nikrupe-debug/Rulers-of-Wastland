@@ -2,13 +2,13 @@ import type { Building, BuildingBonus, BuildingType } from '../types/game';
 
 export const BUILDING_BONUSES: Record<BuildingType, BuildingBonus> = {
   hospital:     { healSpeed: 2 },
-  factory:      { equipmentCostReduction: 0.25 },
-  bank:         { incomeBonus: 50 },
+  factory:      { equipmentCostReduction: 0.30 },
+  bank:         { incomeBonus: 200 },
   research_lab: { researchSpeed: 2 },
   police_hq:    { alertIncrease: 1 },
-  nightclub:    { prestigeOnCapture: 5 },
+  nightclub:    { prestigePerTurn: 5 },
   warehouse:    { equipmentSlots: 2 },
-  media_tower:  { prestigePerTurn: 2 },
+  media_tower:  { prestigePerTurn: 10, revealsEnemyPositions: true },
 };
 
 export const BUILDING_LABELS: Record<BuildingType, string> = {
@@ -23,14 +23,14 @@ export const BUILDING_LABELS: Record<BuildingType, string> = {
 };
 
 export const BUILDING_DESCRIPTIONS: Record<BuildingType, string> = {
-  hospital:     '+Heal speed for gangs in sector',
-  factory:      'Equipment costs 25% less',
-  bank:         '+$50 income per turn',
-  research_lab: 'Research speed ×2',
-  police_hq:    'Raises alert when held by enemy',
-  nightclub:    '+5 prestige on capture',
-  warehouse:    '+2 equipment slots',
-  media_tower:  '+2 prestige per turn',
+  hospital:     'Gangs heal 2× faster in this sector',
+  factory:      'Equipment costs 30% less',
+  bank:         '+$200 income per turn',
+  research_lab: '+2 research points per turn',
+  police_hq:    'Raises alert for ALL players while held',
+  nightclub:    '+5 prestige per turn',
+  warehouse:    'Hold 2 extra equipment items',
+  media_tower:  '+10 prestige/turn · reveals enemy positions',
 };
 
 export const BUILDING_ICONS: Record<BuildingType, string> = {
@@ -60,6 +60,7 @@ export function createBuilding(type: BuildingType): Building {
     bonus: BUILDING_BONUSES[type],
     controlProgress: 0,
     controllingPlayerId: null,
+    extortedBy: [],
   };
 }
 

@@ -17,7 +17,7 @@ export interface BuildingBonus {
   alertIncrease?: number;
   prestigePerTurn?: number;
   equipmentSlots?: number;
-  prestigeOnCapture?: number;
+  revealsEnemyPositions?: boolean;
 }
 
 export interface Building {
@@ -28,6 +28,7 @@ export interface Building {
   bonus: BuildingBonus;
   controlProgress: number;       // 0–10
   controllingPlayerId: string | null;
+  extortedBy: string[];          // player ids that have extorted this building
 }
 
 export interface Equipment {
@@ -43,11 +44,12 @@ export type GangAction =
   | { type: 'move';    target: [number, number] }
   | { type: 'attack';  targetGangId: string }
   | { type: 'control'; targetBuildingId: string }
+  | { type: 'extort';  targetBuildingId: string }
   | { type: 'research'; techId: string }
   | { type: 'equip';   equipmentId: string }
+  | { type: 'bribe' }
   | { type: 'hide' }
-  | { type: 'heal' }
-  | { type: 'extort';  targetBuildingId: string };
+  | { type: 'heal' };
 
 export interface Gang {
   id: string;

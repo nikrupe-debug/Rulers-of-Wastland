@@ -3,10 +3,16 @@ import { resolveMelee } from './combat';
 import { pickAIActions } from './ai';
 import { checkVictory } from './victory';
 import { isAdjacent } from '../utils/grid';
+import { d6 } from '../utils/dice';
+import { TECH_TREE } from '../data/techs';
 
 const CONTROL_THRESHOLD = 10;
 const BASE_INCOME = 100;
 const HEAL_RATE = 2;
+const EXTORT_THRESHOLD = 8;
+const EXTORT_PAYOUT = 100;
+const BRIBE_COST = 150;
+const BRIBE_ALERT_REDUCTION = 2;
 
 export interface ResolutionResult {
   players: Player[];
@@ -90,7 +96,11 @@ export function resolveFullTurn(state: GameState): ResolutionResult {
         building.controlProgress = 0;
       }
       building.controllingPlayerId = player.id;
-      building.controlProgress = Math.min(CONTROL_THRESHOLD, building.controlProgress + gang.control);
+      // Extorted buildings resist control attempts — half contribution
+      const controlContrib = building.extortedBy.includes(player.id)
+        ? Math.max(1, Math.floor(gang.control / 2))
+        : gang.control;
+      building.controlProgress = Math.min(CONTROL_THRESHOLD, building.controlProgress + controlContrib);
 
       if (building.controlProgress >= CONTROL_THRESHOLD) {
         const prevOwner = building.owner;
@@ -109,15 +119,72 @@ export function resolveFullTurn(state: GameState): ResolutionResult {
     }
   }
 
+  // Step 5b: Process EXTORT actions
+  for (const player of players) {
+    for (const gang of player.gangs) {
+      if (gang.status !== 'active' || gang.currentAction?.type !== 'extort') continue;
+      const buildingId = gang.currentAction.targetBuildingId;
+      if (!gang.position) continue;
+      const sector = grid.sectors[gang.position[0]][gang.position[1]];
+      const building = sector.buildings.find(b => b.id === buildingId);
+      if (!building || building.owner === player.id) continue;
+
+      if (gang.stealth + d6() >= EXTORT_THRESHOLD) {
+        player.cash += EXTORT_PAYOUT;
+        if (!building.extortedBy.includes(player.id)) {
+          building.extortedBy = [...building.extortedBy, player.id];
+        }
+        log.push({ message: `${gang.name} extorts ${building.type.replace('_', ' ')} — +$${EXTORT_PAYOUT}`, type: 'economy' });
+      } else {
+        alertDelta += 2;
+        log.push({ message: `${gang.name}'s extortion discovered! Alert +2`, type: 'combat' });
+      }
+    }
+  }
+
+  // Step 5c: Process RESEARCH actions
+  for (const player of players) {
+    for (const gang of player.gangs) {
+      if (gang.status !== 'active' || gang.currentAction?.type !== 'research') continue;
+      const techId = gang.currentAction.techId;
+      const tech = TECH_TREE.find(t => t.id === techId);
+      if (!tech || player.unlockedTechs.includes(techId)) continue;
+
+      player.researchProgress = { ...player.researchProgress };
+      player.researchProgress[techId] = (player.researchProgress[techId] ?? 0) + gang.research;
+
+      if (player.researchProgress[techId] >= tech.cost) {
+        player.unlockedTechs = [...player.unlockedTechs, techId];
+        delete player.researchProgress[techId];
+        log.push({ message: `${player.name} unlocked ${tech.name}!`, type: 'research' });
+      } else {
+        log.push({ message: `${gang.name} researches ${tech.name} (${player.researchProgress[techId]}/${tech.cost})`, type: 'research' });
+      }
+    }
+  }
+
+  // Step 5d: Process BRIBE actions (one per player per turn, first gang with bribe wins)
+  for (const player of players) {
+    const bribingGang = player.gangs.find(g => g.currentAction?.type === 'bribe' && g.status === 'active');
+    if (bribingGang && player.cash >= BRIBE_COST) {
+      player.cash -= BRIBE_COST;
+      alertDelta -= BRIBE_ALERT_REDUCTION;
+      log.push({ message: `${player.name} bribes the authorities — Alert −${BRIBE_ALERT_REDUCTION}`, type: 'system' });
+    }
+  }
+
   // Step 6: Process HEAL actions
   for (const player of players) {
     for (const gang of player.gangs) {
       if (gang.currentAction?.type !== 'heal') continue;
       if (gang.status === 'dead') continue;
-      const healed = Math.min(gang.maxMorale - gang.morale, HEAL_RATE);
+      const healSector = gang.position ? grid.sectors[gang.position[0]][gang.position[1]] : null;
+      const hasHospital = healSector?.buildings.some(b => b.type === 'hospital' && b.owner === player.id) ?? false;
+      const healRate = hasHospital ? HEAL_RATE * 2 : HEAL_RATE;
+      const healed = Math.min(gang.maxMorale - gang.morale, healRate);
       gang.morale += healed;
       gang.status = 'active';
-      if (healed > 0) log.push({ message: `${gang.name} recovers ${healed} morale`, type: 'event' });
+      if (healed > 0) log.push({ message: `${gang.name} recovers ${healed} morale${hasHospital ? ' (hospital)' : ''}`, type: 'event' });
     }
   }
 
@@ -126,6 +193,7 @@ export function resolveFullTurn(state: GameState): ResolutionResult {
     for (const gang of player.gangs) {
       if (gang.currentAction?.type === 'hide' && gang.status === 'active') {
         gang.status = 'hiding';
+        alertDelta -= 1;
         log.push({ message: `${gang.name} goes dark`, type: 'event' });
       }
       // Un-hide if not hiding this turn
@@ -161,6 +229,17 @@ export function resolveFullTurn(state: GameState): ResolutionResult {
     log.push({ message: `${player.name}: +$${income} income, -$${maintenance} maintenance`, type: 'economy' });
   }
 
+  // Police HQ: any owned police_hq raises alert globally each turn
+  for (const row of grid.sectors) {
+    for (const sector of row) {
+      for (const building of sector.buildings) {
+        if (building.type === 'police_hq' && building.owner !== null) {
+          alertDelta += 1;
+        }
+      }
+    }
+  }
+
   // Step 9: Alert — decrease by 1 if no combat happened
   if (alertDelta === 0) alertDelta = -1;
 
@@ -184,7 +263,7 @@ function deepCloneGrid(grid: GameState['grid']): GameState['grid'] {
     sectors: grid.sectors.map(row =>
       row.map(sector => ({
         ...sector,
-        buildings: sector.buildings.map(b => ({ ...b })),
+        buildings: sector.buildings.map(b => ({ ...b, extortedBy: [...b.extortedBy] })),
         gangsPresent: [...sector.gangsPresent],
       }))
     ),
