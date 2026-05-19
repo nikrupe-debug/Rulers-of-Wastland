@@ -130,7 +130,11 @@ function TechCard({ item, gangId, onBack }: { item: ActionItem; gangId: string; 
   );
 }
 
-export default function ActionPanel() {
+interface Props {
+  onGangSelect?: (pos: [number, number] | null) => void;
+}
+
+export default function ActionPanel({ onGangSelect }: Props) {
   const { players, grid, assignAction, resolveOrders } = useGameStore();
   const human = players.find(p => p.isHuman)!;
   const ai = players.find(p => !p.isHuman)!;
@@ -146,6 +150,8 @@ export default function ActionPanel() {
     setSelected(id);
     setPreviewItem(null);
     setOpenCats(new Set(['move']));
+    const pos = id ? human.gangs.find(g => g.id === id)?.position ?? null : null;
+    onGangSelect?.(pos);
   }
 
   function toggleCat(key: string) {

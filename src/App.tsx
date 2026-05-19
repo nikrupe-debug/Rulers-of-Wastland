@@ -21,8 +21,9 @@ const ALERT_LABELS = ['Clear', 'Quiet', 'Patrols', 'Patrols+', 'Squad', 'Crackdo
 export default function App() {
   const { turn, phase, players, grid, alertSystem, winner, victoryCondition, resetGame, recruitGang } = useGameStore();
 
-  const [sectorView, setSectorView]     = useState<[number, number] | null>(null);
+  const [sectorView, setSectorView]       = useState<[number, number] | null>(null);
   const [pendingDeploy, setPendingDeploy] = useState<Gang | null>(null);
+  const [gangHighlight, setGangHighlight] = useState<[number, number] | null>(null);
 
   if (players.length === 0) return <SetupScreen />;
 
@@ -94,6 +95,7 @@ export default function App() {
       <div className="flex justify-center pt-2 pb-1">
         <CityGrid
           selectedPos={sectorView}
+          highlightPos={gangHighlight}
           onSectorClick={handleSectorClick}
           deployMode={!!pendingDeploy}
           humanId={human.id}
@@ -151,7 +153,7 @@ export default function App() {
         ) : !pendingDeploy && phase === 'recruit' ? (
           <RecruitPanel onHireRequest={handleHireRequest} />
         ) : !pendingDeploy && phase === 'orders' ? (
-          <ActionPanel />
+          <ActionPanel onGangSelect={pos => setGangHighlight(pos)} />
         ) : !pendingDeploy ? (
           <EventLog />
         ) : null}

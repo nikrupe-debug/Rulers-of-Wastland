@@ -37,3 +37,12 @@ body {
   animation: deploy-pulse 0.9s ease-in-out infinite;
   z-index: 1;
 }
+
+@keyframes gang-highlight {
+  0%, 100% { box-shadow: 0 0 0 2px #fff; }
+  50%       { box-shadow: 0 0 0 4px #fff, 0 0 12px rgba(255,255,255,0.6); }
+}
+.gang-highlight {
+  animation: gang-highlight 0.7s ease-in-out infinite;
+  z-index: 1;
+}
