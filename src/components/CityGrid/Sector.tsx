@@ -44,9 +44,15 @@ export default function Sector({ sector, players, isHQ, selected, onClick }: Pro
 
   const shortName = sector.name.split(' ')[0].slice(0, 6);
 
+  function handleTouch(e: React.TouchEvent) {
+    e.preventDefault(); // blocks scroll detection AND suppresses the synthetic click
+    onClick();
+  }
+
   return (
     <button
       type="button"
+      onTouchEnd={handleTouch}
       onClick={onClick}
       style={{
         cursor: 'pointer',

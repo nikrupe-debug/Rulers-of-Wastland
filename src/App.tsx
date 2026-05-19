@@ -31,9 +31,7 @@ export default function App() {
   const ai = players.find(p => !p.isHuman)!;
 
   function handleSectorClick(pos: [number, number]) {
-    setSectorView(prev =>
-      prev && prev[0] === pos[0] && prev[1] === pos[1] ? null : pos
-    );
+    setSectorView(pos);
   }
 
   const viewedSector = sectorView ? grid.sectors[sectorView[0]]?.[sectorView[1]] : null;
