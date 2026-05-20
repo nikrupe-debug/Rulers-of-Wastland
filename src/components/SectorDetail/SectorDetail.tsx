@@ -12,6 +12,7 @@ interface Props {
   sector: Sector;
   players: Player[];
   onClose: () => void;
+  onMoveRequest?: (gangId: string, from: [number, number]) => void;
 }
 
 // ── Shared sub-components ────────────────────────────────────────────────────
@@ -30,12 +31,18 @@ function StatBar({ label, value, max }: { label: string; value: number; max: num
 
 // ── GangCommandView — embedded action panel for one gang ────────────────────
 
-function GangCommandView({ gang, onBack }: { gang: Gang; onBack: () => void }) {
+function GangCommandView({
+  gang, onBack, onMoveRequest,
+}: {
+  gang: Gang;
+  onBack: () => void;
+  onMoveRequest?: (gangId: string, from: [number, number]) => void;
+}) {
   const { players, grid, assignAction } = useGameStore();
   const human = players.find(p => p.isHuman)!;
   const ai    = players.find(p => !p.isHuman)!;
 
-  const [openCats, setOpenCats]     = useState<Set<string>>(new Set(['move']));
+  const [openCats, setOpenCats]     = useState<Set<string>>(new Set());
   const [previewItem, setPreviewItem] = useState<ActionItem | null>(null);
 
   const actions = getGangActions(gang, human, ai, grid);
@@ -182,7 +189,19 @@ function GangCommandView({ gang, onBack }: { gang: Gang; onBack: () => void }) {
         {/* Action categories */}
         {!previewItem && (
           <>
-            {CATEGORIES.filter(c => byKey[c.key]?.length).map(c => (
+            {/* Move — tap map */}
+            {gang.position && (
+              <button
+                type="button"
+                onClick={() => { onMoveRequest?.(gang.id, gang.position!); onBack(); }}
+                className="w-full flex justify-between items-center px-2 py-1 rounded text-xs font-bold"
+                style={{ background: 'var(--surface)', color: 'var(--success)', touchAction: 'manipulation' }}
+              >
+                <span>Move</span>
+                <span className="text-[10px]">tap map ▶</span>
+              </button>
+            )}
+            {CATEGORIES.filter(c => c.key !== 'move' && byKey[c.key]?.length).map(c => (
               <div key={c.key}>
                 <button
                   type="button"
@@ -234,7 +253,163 @@ function GangCommandView({ gang, onBack }: { gang: Gang; onBack: () => void }) {
 
 // ── SectorDetail ─────────────────────────────────────────────────────────────
 
-export default function SectorDetail({ sector, players, onClose }: Props) {
+// ── BuildingInteractionView ──────────────────────────────────────────────────
+
+function BuildingInteractionView({
+  building, sector, human, players, onBack,
+}: {
+  building: import('../../types/game').Building;
+  sector: Sector;
+  human: Player;
+  players: Player[];
+  onBack: () => void;
+}) {
+  const { assignAction } = useGameStore();
+  const [chosenAction, setChosenAction] = useState<'control' | 'extort' | 'use' | null>(null);
+
+  const bOwner = players.find(p => p.id === building.owner);
+  const canControl = sector.owner === human.id && building.owner !== human.id;
+  const canExtort  = building.owner !== human.id;
+  const canUse     = building.type === 'hospital' && building.owner === human.id;
+
+  const humanGangsHere = human.gangs.filter(g =>
+    g.status !== 'dead' &&
+    g.position?.[0] === sector.position[0] &&
+    g.position?.[1] === sector.position[1]
+  );
+
+  function buildAction(): import('../../types/game').GangAction | null {
+    if (chosenAction === 'control') return { type: 'control', targetBuildingId: building.id };
+    if (chosenAction === 'extort')  return { type: 'extort',  targetBuildingId: building.id };
+    if (chosenAction === 'use')     return { type: 'heal' };
+    return null;
+  }
+
+  function assignToGang(gang: import('../../types/game').Gang) {
+    const action = buildAction();
+    if (action) { assignAction(gang.id, action); onBack(); }
+  }
+
+  // ── Gang picker ──
+  if (chosenAction) {
+    const verb = chosenAction === 'control' ? 'Control' : chosenAction === 'extort' ? 'Extort' : 'Use';
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+          <button type="button" onClick={() => setChosenAction(null)}
+            className="text-xs px-2 py-1 rounded border shrink-0"
+            style={{ borderColor: 'var(--border)', color: 'var(--text-dim)', touchAction: 'manipulation' }}>←</button>
+          <div>
+            <div className="font-bold text-sm" style={{ color: 'var(--accent)' }}>
+              {verb}: {BUILDING_LABELS[building.type]}
+            </div>
+            <div className="text-[10px]" style={{ color: 'var(--text-dim)' }}>Select a unit to send</div>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1" style={{ touchAction: 'pan-y' }}>
+          {humanGangsHere.length === 0 && (
+            <p className="text-xs text-center py-4" style={{ color: 'var(--text-dim)' }}>No units at this location.</p>
+          )}
+          {humanGangsHere.map(gang => (
+            <button key={gang.id} type="button" onClick={() => assignToGang(gang)}
+              className="flex items-center gap-2 p-2 rounded border text-left w-full"
+              style={{ borderColor: human.color + '55', background: human.color + '15', touchAction: 'manipulation' }}>
+              <span className="text-xl">{gang.portrait}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold truncate" style={{ color: human.color }}>{gang.name}</div>
+                <div className="text-[9px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
+                  <span>⚔️{gang.combat}</span><span>🎯{gang.ranged}</span>
+                  <span>👁️{gang.stealth}</span><span>🏴{gang.control}</span>
+                </div>
+              </div>
+              {gang.currentAction && (
+                <span className="text-[8px] px-1 py-0.5 rounded shrink-0"
+                  style={{ background: 'var(--success)33', color: 'var(--success)' }}>
+                  {gang.currentAction.type.toUpperCase()}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Action picker ──
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+        <button type="button" onClick={onBack}
+          className="text-xs px-2 py-1 rounded border shrink-0"
+          style={{ borderColor: 'var(--border)', color: 'var(--text-dim)', touchAction: 'manipulation' }}>←</button>
+        <span className="text-2xl">{BUILDING_ICONS[building.type]}</span>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-sm truncate" style={{ color: bOwner ? bOwner.color : 'var(--accent)' }}>
+            {BUILDING_LABELS[building.type]}
+          </div>
+          <div className="text-[10px]" style={{ color: 'var(--text-dim)' }}>{BUILDING_DESCRIPTIONS[building.type]}</div>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3" style={{ touchAction: 'pan-y' }}>
+
+        {/* Ownership + progress */}
+        <div className="rounded p-2 text-xs" style={{ background: 'var(--surface2)' }}>
+          {bOwner ? (
+            <span style={{ color: bOwner.color }}>● Controlled by {bOwner.name}</span>
+          ) : building.controlProgress > 0 ? (
+            <div>
+              <div className="flex justify-between mb-1" style={{ color: 'var(--text-dim)' }}>
+                <span>Control progress</span><span>{building.controlProgress}/10</span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                <div className="h-full rounded-full" style={{ width: `${(building.controlProgress / 10) * 100}%`, background: 'var(--accent)' }} />
+              </div>
+            </div>
+          ) : (
+            <span style={{ color: 'var(--text-dim)' }}>Uncontrolled</span>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex flex-col gap-2">
+          {canControl && (
+            <button type="button" onClick={() => setChosenAction('control')}
+              className="w-full py-2.5 rounded font-bold text-sm"
+              style={{ background: 'var(--accent)', color: '#000', touchAction: 'manipulation' }}>
+              Control
+            </button>
+          )}
+          {!canControl && !bOwner && sector.owner !== human.id && (
+            <div className="text-[10px] px-2 py-1 rounded" style={{ background: 'var(--surface2)', color: 'var(--text-dim)' }}>
+              ⚠ Claim territory first to control buildings
+            </div>
+          )}
+          {canExtort && (
+            <button type="button" onClick={() => setChosenAction('extort')}
+              className="w-full py-2.5 rounded font-bold text-sm border"
+              style={{ borderColor: 'var(--accent)', color: 'var(--accent)', background: 'transparent', touchAction: 'manipulation' }}>
+              Extort
+            </button>
+          )}
+          {canUse && (
+            <button type="button" onClick={() => setChosenAction('use')}
+              className="w-full py-2.5 rounded font-bold text-sm border"
+              style={{ borderColor: 'var(--success)', color: 'var(--success)', background: 'transparent', touchAction: 'manipulation' }}>
+              Use — Heal
+            </button>
+          )}
+          {!canControl && !canExtort && !canUse && (
+            <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>No actions available.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SectorDetail ─────────────────────────────────────────────────────────────
+
+export default function SectorDetail({ sector, players, onClose, onMoveRequest }: Props) {
   const { grid } = useGameStore();
   const human = players.find(p => p.isHuman)!;
   const owner = players.find(p => p.id === sector.owner);
@@ -244,6 +419,7 @@ export default function SectorDetail({ sector, players, onClose }: Props) {
     : null;
 
   const [commandGangId, setCommandGangId] = useState<string | null>(null);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
 
   const allGangsHere = players.flatMap(p =>
     p.gangs.filter(g =>
@@ -255,16 +431,27 @@ export default function SectorDetail({ sector, players, onClose }: Props) {
   const humanGangsHere = allGangsHere.filter(({ player }) => player.isHuman);
   const enemyGangsHere = allGangsHere.filter(({ player }) => !player.isHuman);
 
-  const commandGang = commandGangId
-    ? human.gangs.find(g => g.id === commandGangId) ?? null
-    : null;
+  const commandGang = commandGangId ? human.gangs.find(g => g.id === commandGangId) ?? null : null;
+  const selectedBuilding = selectedBuildingId ? sector.buildings.find(b => b.id === selectedBuildingId) ?? null : null;
 
-  // Show command view when a gang is selected
   if (commandGang) {
     return (
       <GangCommandView
         gang={commandGang}
         onBack={() => setCommandGangId(null)}
+        onMoveRequest={onMoveRequest}
+      />
+    );
+  }
+
+  if (selectedBuilding) {
+    return (
+      <BuildingInteractionView
+        building={selectedBuilding}
+        sector={sector}
+        human={human}
+        players={players}
+        onBack={() => setSelectedBuildingId(null)}
       />
     );
   }
@@ -425,20 +612,25 @@ export default function SectorDetail({ sector, players, onClose }: Props) {
           )}
         </div>
 
-        {/* Buildings */}
+        {/* Buildings — tappable to interact */}
         {sector.buildings.length > 0 && (
           <div>
             <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-dim)' }}>
-              Buildings ({sector.buildings.length})
+              Infrastructure ({sector.buildings.length}) · tap to act
             </div>
             <div className="flex flex-col gap-1">
               {sector.buildings.map(b => {
                 const bOwner = players.find(p => p.id === b.owner);
                 return (
-                  <div key={b.id} className="flex items-center gap-3 p-2 rounded border"
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => setSelectedBuildingId(b.id)}
+                    className="flex items-center gap-3 p-2 rounded border text-left w-full"
                     style={{
                       borderColor: bOwner ? bOwner.color + '88' : 'var(--border)',
                       background: bOwner ? bOwner.color + '20' : 'var(--surface2)',
+                      touchAction: 'manipulation',
                     }}
                   >
                     <span className="text-2xl">{BUILDING_ICONS[b.type]}</span>
@@ -462,10 +654,10 @@ export default function SectorDetail({ sector, players, onClose }: Props) {
                     <div className="text-right shrink-0">
                       {bOwner
                         ? <span className="text-[9px] font-bold" style={{ color: bOwner.color }}>● {bOwner.name}</span>
-                        : <span className="text-[9px]" style={{ color: 'var(--text-dim)' }}>Neutral</span>
+                        : <span className="text-[9px]" style={{ color: 'var(--text-dim)' }}>Neutral ›</span>
                       }
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>

@@ -46,3 +46,12 @@ body {
   animation: gang-highlight 0.7s ease-in-out infinite;
   z-index: 1;
 }
+
+@keyframes move-target {
+  0%, 100% { box-shadow: 0 0 0 2px var(--success); }
+  50%       { box-shadow: 0 0 0 4px var(--success), 0 0 10px var(--success); }
+}
+.move-target {
+  animation: move-target 0.9s ease-in-out infinite;
+  z-index: 1;
+}

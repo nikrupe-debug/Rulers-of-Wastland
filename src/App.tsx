@@ -7,6 +7,7 @@ import EventLog from './components/EventLog/EventLog';
 import SetupScreen from './components/SetupScreen/SetupScreen';
 import SectorDetail from './components/SectorDetail/SectorDetail';
 import type { Gang, VictoryType } from './types/game';
+import { getAdjacentPositions } from './utils/grid';
 
 const VICTORY_LABELS: Record<VictoryType, string> = {
   elimination: 'Elimination',
@@ -19,10 +20,11 @@ const VICTORY_LABELS: Record<VictoryType, string> = {
 const ALERT_LABELS = ['Clear', 'Quiet', 'Patrols', 'Patrols+', 'Squad', 'Crackdown'];
 
 export default function App() {
-  const { turn, phase, players, grid, alertSystem, winner, victoryCondition, resetGame, recruitGang } = useGameStore();
+  const { turn, phase, players, grid, alertSystem, winner, victoryCondition, resetGame, recruitGang, assignAction } = useGameStore();
 
   const [sectorView, setSectorView]       = useState<[number, number] | null>(null);
   const [pendingDeploy, setPendingDeploy] = useState<Gang | null>(null);
+  const [pendingMove, setPendingMove]     = useState<{ gangId: string; from: [number, number] } | null>(null);
   const [gangHighlight, setGangHighlight] = useState<[number, number] | null>(null);
 
   if (players.length === 0) return <SetupScreen />;
@@ -41,6 +43,11 @@ export default function App() {
     }
   }
 
+  function handleMoveRequest(gangId: string, from: [number, number]) {
+    setSectorView(null);
+    setPendingMove({ gangId, from });
+  }
+
   function handleSectorClick(pos: [number, number]) {
     const sector = grid.sectors[pos[0]]?.[pos[1]];
     if (!sector) return;
@@ -53,8 +60,19 @@ export default function App() {
       return;
     }
 
+    if (pendingMove) {
+      const targets = getAdjacentPositions(pendingMove.from);
+      if (targets.some(t => t[0] === pos[0] && t[1] === pos[1])) {
+        assignAction(pendingMove.gangId, { type: 'move', target: pos });
+        setPendingMove(null);
+      }
+      return;
+    }
+
     setSectorView(pos);
   }
+
+  const moveTargets = pendingMove ? getAdjacentPositions(pendingMove.from) : [];
 
   const viewedSector = sectorView ? grid.sectors[sectorView[0]]?.[sectorView[1]] : null;
 
@@ -99,6 +117,7 @@ export default function App() {
           onSectorClick={handleSectorClick}
           deployMode={!!pendingDeploy}
           humanId={human.id}
+          moveTargets={moveTargets}
         />
       </div>
 
@@ -108,7 +127,7 @@ export default function App() {
         {/* Deploy mode instruction */}
         {pendingDeploy && (
           <div className="flex items-center justify-between px-3 py-3 border-b"
-            style={{ borderColor: 'var(--accent) + "44"', background: 'var(--accent)18' }}>
+            style={{ borderColor: 'var(--accent)44', background: 'var(--accent)18' }}>
             <div>
               <div className="text-xs font-bold" style={{ color: 'var(--accent)' }}>
                 Deploy {pendingDeploy.portrait} {pendingDeploy.name}
@@ -117,24 +136,45 @@ export default function App() {
                 Tap a glowing sector on the map
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setPendingDeploy(null)}
+            <button type="button" onClick={() => setPendingDeploy(null)}
               className="text-xs px-2 py-1 rounded border"
-              style={{ borderColor: 'var(--border)', color: 'var(--text-dim)', touchAction: 'manipulation' }}
-            >
+              style={{ borderColor: 'var(--border)', color: 'var(--text-dim)', touchAction: 'manipulation' }}>
               Cancel
             </button>
           </div>
         )}
 
-        {!pendingDeploy && viewedSector ? (
+        {/* Move mode instruction */}
+        {pendingMove && (() => {
+          const movingGang = players.flatMap(p => p.gangs).find(g => g.id === pendingMove.gangId);
+          return (
+            <div className="flex items-center justify-between px-3 py-3 border-b"
+              style={{ borderColor: 'var(--success)44', background: 'var(--success)18' }}>
+              <div>
+                <div className="text-xs font-bold" style={{ color: 'var(--success)' }}>
+                  Move {movingGang?.portrait} {movingGang?.name}
+                </div>
+                <div className="text-[10px] mt-[2px]" style={{ color: 'var(--text-dim)' }}>
+                  Tap a glowing adjacent tile
+                </div>
+              </div>
+              <button type="button" onClick={() => setPendingMove(null)}
+                className="text-xs px-2 py-1 rounded border"
+                style={{ borderColor: 'var(--border)', color: 'var(--text-dim)', touchAction: 'manipulation' }}>
+                Cancel
+              </button>
+            </div>
+          );
+        })()}
+
+        {!pendingDeploy && !pendingMove && viewedSector ? (
           <SectorDetail
             sector={viewedSector}
             players={players}
             onClose={() => setSectorView(null)}
+            onMoveRequest={handleMoveRequest}
           />
-        ) : !pendingDeploy && winner ? (
+        ) : !pendingDeploy && !pendingMove && winner ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
             <div className="text-4xl">{winner.isHuman ? '🏆' : '💀'}</div>
             <div className="font-bold text-lg" style={{ color: winner.isHuman ? 'var(--accent)' : 'var(--danger)' }}>
@@ -150,11 +190,14 @@ export default function App() {
               Play Again
             </button>
           </div>
-        ) : !pendingDeploy && phase === 'recruit' ? (
+        ) : !pendingDeploy && !pendingMove && phase === 'recruit' ? (
           <RecruitPanel onHireRequest={handleHireRequest} />
-        ) : !pendingDeploy && phase === 'orders' ? (
-          <ActionPanel onGangSelect={pos => setGangHighlight(pos)} />
-        ) : !pendingDeploy ? (
+        ) : !pendingDeploy && !pendingMove && phase === 'orders' ? (
+          <ActionPanel
+            onGangSelect={pos => setGangHighlight(pos)}
+            onMoveRequest={handleMoveRequest}
+          />
+        ) : !pendingDeploy && !pendingMove ? (
           <EventLog />
         ) : null}
       </div>

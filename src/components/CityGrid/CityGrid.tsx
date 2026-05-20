@@ -8,9 +8,10 @@ interface Props {
   onSectorClick: (pos: [number, number]) => void;
   deployMode?: boolean;
   humanId?: string;
+  moveTargets?: [number, number][];
 }
 
-export default function CityGrid({ selectedPos, highlightPos, onSectorClick, deployMode = false, humanId }: Props) {
+export default function CityGrid({ selectedPos, highlightPos, onSectorClick, deployMode = false, humanId, moveTargets }: Props) {
   const { grid, players } = useGameStore();
 
   if (!grid.sectors.length) return null;
@@ -26,6 +27,7 @@ export default function CityGrid({ selectedPos, highlightPos, onSectorClick, dep
             const isHQ = hqPositions.some(([r, c]) => r === rowIdx && c === colIdx);
             const isSelected = selectedPos !== null && selectedPos[0] === rowIdx && selectedPos[1] === colIdx;
             const isDeployTarget = deployMode && humanId !== undefined && sector.owner === humanId;
+            const isMoveTarget = moveTargets != null && moveTargets.some(t => t[0] === rowIdx && t[1] === colIdx);
             const isHighlighted = highlightPos !== null && highlightPos[0] === rowIdx && highlightPos[1] === colIdx;
             const visibilityLevel = human ? getSectorVisibility([rowIdx, colIdx], human, grid) : 'none';
             return (
@@ -36,6 +38,7 @@ export default function CityGrid({ selectedPos, highlightPos, onSectorClick, dep
                 isHQ={isHQ}
                 selected={isSelected}
                 isDeployTarget={isDeployTarget}
+                isMoveTarget={isMoveTarget}
                 isHighlighted={isHighlighted}
                 visibilityLevel={visibilityLevel}
                 onClick={() => onSectorClick([rowIdx, colIdx])}

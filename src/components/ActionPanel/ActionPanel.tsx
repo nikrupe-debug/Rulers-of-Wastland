@@ -132,9 +132,10 @@ function TechCard({ item, gangId, onBack }: { item: ActionItem; gangId: string; 
 
 interface Props {
   onGangSelect?: (pos: [number, number] | null) => void;
+  onMoveRequest?: (gangId: string, from: [number, number]) => void;
 }
 
-export default function ActionPanel({ onGangSelect }: Props) {
+export default function ActionPanel({ onGangSelect, onMoveRequest }: Props) {
   const { players, grid, assignAction, resolveOrders } = useGameStore();
   const human = players.find(p => p.isHuman)!;
   const ai = players.find(p => !p.isHuman)!;
@@ -213,13 +214,24 @@ export default function ActionPanel({ onGangSelect }: Props) {
                   )
                 ) : (
                   <div className="flex flex-col gap-[2px]">
+                    {/* Move — tap map instead of picking from list */}
+                    {gang.position && (
+                      <button
+                        onClick={() => { onMoveRequest?.(gang.id, gang.position!); selectGang(null); }}
+                        className="w-full flex justify-between items-center px-2 py-1 rounded text-xs font-bold"
+                        style={{ background: 'var(--surface)', color: 'var(--success)', touchAction: 'manipulation' }}
+                      >
+                        <span>Move</span>
+                        <span className="text-[10px]">tap map ▶</span>
+                      </button>
+                    )}
                     {(() => {
                       const all = getGangActions(gang, human, ai, grid);
                       const byKey = all.reduce<Record<string, ActionItem[]>>((acc, item) => {
                         (acc[item.category] ??= []).push(item);
                         return acc;
                       }, {});
-                      return CATEGORIES.filter(c => byKey[c.key]?.length).map(c => (
+                      return CATEGORIES.filter(c => c.key !== 'move' && byKey[c.key]?.length).map(c => (
                         <div key={c.key}>
                           <button onClick={() => toggleCat(c.key)}
                             className="w-full flex justify-between items-center px-2 py-1 rounded text-xs font-bold"

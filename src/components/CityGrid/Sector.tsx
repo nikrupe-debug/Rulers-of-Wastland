@@ -10,12 +10,13 @@ interface Props {
   isHQ: boolean;
   selected: boolean;
   isDeployTarget: boolean;
+  isMoveTarget: boolean;
   isHighlighted: boolean;
   visibilityLevel: VisibilityLevel;
   onClick: () => void;
 }
 
-export default function Sector({ sector, players, isHQ, selected, isDeployTarget, isHighlighted, visibilityLevel, onClick }: Props) {
+export default function Sector({ sector, players, isHQ, selected, isDeployTarget, isMoveTarget, isHighlighted, visibilityLevel, onClick }: Props) {
   const owner = players.find(p => p.id === sector.owner);
 
   const claimingPlayer = !owner && sector.controllingPlayerId
@@ -62,7 +63,7 @@ export default function Sector({ sector, players, isHQ, selected, isDeployTarget
       type="button"
       onTouchEnd={handleTouch}
       onClick={onClick}
-      className={isDeployTarget ? 'deploy-target' : isHighlighted ? 'gang-highlight' : ''}
+      className={isDeployTarget ? 'deploy-target' : isMoveTarget ? 'move-target' : isHighlighted ? 'gang-highlight' : ''}
       style={{
         cursor: 'pointer',
         touchAction: 'manipulation',
