@@ -242,13 +242,15 @@ export default function SectorDetail({ sector, players, onClose }: Props) {
 
   const [commandGangId, setCommandGangId] = useState<string | null>(null);
 
-  const gangsHere = players.flatMap(p =>
+  const allGangsHere = players.flatMap(p =>
     p.gangs.filter(g =>
       g.status !== 'dead' &&
       g.position?.[0] === sector.position[0] &&
       g.position?.[1] === sector.position[1]
     ).map(g => ({ gang: g, player: p }))
   );
+  const humanGangsHere = allGangsHere.filter(({ player }) => player.isHuman);
+  const enemyGangsHere = allGangsHere.filter(({ player }) => !player.isHuman);
 
   const commandGang = commandGangId
     ? human.gangs.find(g => g.id === commandGangId) ?? null
@@ -303,65 +305,80 @@ export default function SectorDetail({ sector, players, onClose }: Props) {
         {/* Units */}
         <div>
           <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-dim)' }}>
-            Units {gangsHere.length === 0 ? '— None' : `(${gangsHere.length})`}
+            Units {allGangsHere.length === 0 ? '— None' : `(${allGangsHere.length})`}
           </div>
-          {gangsHere.length > 0 ? (
-            <div className="flex flex-col gap-1">
-              {gangsHere.map(({ gang, player }) => {
-                const isHuman = player.id === human.id;
-                return (
-                  <button
-                    key={gang.id}
-                    type="button"
-                    onClick={isHuman ? () => setCommandGangId(gang.id) : undefined}
-                    className="flex items-center gap-2 p-2 rounded border text-left w-full"
-                    style={{
-                      borderColor: player.color + '55',
-                      background: player.color + '15',
-                      cursor: isHuman ? 'pointer' : 'default',
-                      touchAction: 'manipulation',
-                    }}
-                  >
-                    <span className="text-xl">{gang.portrait}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold truncate" style={{ color: player.color }}>{gang.name}</div>
-                      <div className="flex items-center gap-1 mt-[3px]">
-                        <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
-                          <div className="h-full rounded-full" style={{
-                            width: `${Math.round((gang.morale / gang.maxMorale) * 100)}%`,
-                            background: gang.morale > gang.maxMorale * 0.5 ? player.color : 'var(--danger)',
-                          }} />
-                        </div>
-                        <span className="text-[9px] shrink-0" style={{ color: 'var(--text-dim)' }}>
-                          {gang.morale}/{gang.maxMorale}
-                        </span>
-                      </div>
-                      <div className="text-[9px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
-                        <span>⚔️{gang.combat}</span>
-                        <span>🎯{gang.ranged}</span>
-                        <span>👁️{gang.stealth}</span>
-                        <span>🏴{gang.control}</span>
-                      </div>
-                    </div>
-                    <div className="shrink-0 flex flex-col items-end gap-1">
-                      {gang.currentAction ? (
-                        <span className="text-[8px] font-bold px-1 py-0.5 rounded"
-                          style={{ background: 'var(--success)' + '33', color: 'var(--success)' }}>
-                          {gang.currentAction.type.toUpperCase()}
-                        </span>
-                      ) : isHuman ? (
-                        <span className="text-[8px] px-1 py-0.5 rounded"
-                          style={{ background: 'var(--accent)' + '22', color: 'var(--accent)' }}>
-                          TAP TO ORDER
-                        </span>
-                      ) : null}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
+          {allGangsHere.length === 0 && (
             <p className="text-xs" style={{ color: 'var(--text-dim)' }}>No units here.</p>
+          )}
+
+          {/* Your gangs — full detail + command */}
+          {humanGangsHere.length > 0 && (
+            <div className="flex flex-col gap-1 mb-1">
+              {humanGangsHere.map(({ gang, player }) => (
+                <button
+                  key={gang.id}
+                  type="button"
+                  onClick={() => setCommandGangId(gang.id)}
+                  className="flex items-center gap-2 p-2 rounded border text-left w-full"
+                  style={{
+                    borderColor: player.color + '55',
+                    background: player.color + '15',
+                    touchAction: 'manipulation',
+                  }}
+                >
+                  <span className="text-xl">{gang.portrait}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold truncate" style={{ color: player.color }}>{gang.name}</div>
+                    <div className="flex items-center gap-1 mt-[3px]">
+                      <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                        <div className="h-full rounded-full" style={{
+                          width: `${Math.round((gang.morale / gang.maxMorale) * 100)}%`,
+                          background: gang.morale > gang.maxMorale * 0.5 ? player.color : 'var(--danger)',
+                        }} />
+                      </div>
+                      <span className="text-[9px] shrink-0" style={{ color: 'var(--text-dim)' }}>
+                        {gang.morale}/{gang.maxMorale}
+                      </span>
+                    </div>
+                    <div className="text-[9px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
+                      <span>⚔️{gang.combat}</span>
+                      <span>🎯{gang.ranged}</span>
+                      <span>👁️{gang.stealth}</span>
+                      <span>🏴{gang.control}</span>
+                    </div>
+                  </div>
+                  <div className="shrink-0 flex flex-col items-end gap-1">
+                    {gang.currentAction ? (
+                      <span className="text-[8px] font-bold px-1 py-0.5 rounded"
+                        style={{ background: 'var(--success)' + '33', color: 'var(--success)' }}>
+                        {gang.currentAction.type.toUpperCase()}
+                      </span>
+                    ) : (
+                      <span className="text-[8px] px-1 py-0.5 rounded"
+                        style={{ background: 'var(--accent)' + '22', color: 'var(--accent)' }}>
+                        TAP TO ORDER
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Enemy gangs — hidden */}
+          {enemyGangsHere.length > 0 && (
+            <div className="flex items-center gap-2 p-2 rounded border"
+              style={{ borderColor: '#cc333355', background: '#cc333310' }}>
+              <span className="text-xl">❓</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold" style={{ color: 'var(--danger)' }}>
+                  Unknown Forces ({enemyGangsHere.length})
+                </div>
+                <div className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+                  Intel required to identify
+                </div>
+              </div>
+            </div>
           )}
         </div>
 

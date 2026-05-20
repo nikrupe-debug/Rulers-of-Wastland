@@ -36,13 +36,15 @@ export default function Sector({ sector, players, isHQ, selected, isDeployTarget
   const borderStyle = !selected && claimingPlayer ? 'dashed' : 'solid';
   const borderWidth = selected || isHQ || claimingPlayer ? 2 : 1;
 
-  const gangsHere = players.flatMap(p =>
+  const allGangsHere = players.flatMap(p =>
     p.gangs.filter(g =>
       g.status !== 'dead' &&
       g.position?.[0] === sector.position[0] &&
       g.position?.[1] === sector.position[1]
-    )
+    ).map(g => ({ gang: g, isHuman: p.isHuman, color: p.color }))
   );
+  const humanGangsHere = allGangsHere.filter(g => g.isHuman);
+  const hasEnemyGangs  = allGangsHere.some(g => !g.isHuman);
 
   const shortName = sector.name.split(' ')[0].slice(0, 6);
 
@@ -123,17 +125,17 @@ export default function Sector({ sector, players, isHQ, selected, isDeployTarget
         ))}
       </div>
 
-      {/* Gang dots */}
-      {gangsHere.length > 0 && (
+      {/* Gang dots — own gangs shown; enemy presence shown as red ? */}
+      {(humanGangsHere.length > 0 || hasEnemyGangs) && (
         <div style={{ position: 'absolute', bottom: '4px', right: '2px', display: 'flex', gap: '1px', pointerEvents: 'none' }}>
-          {gangsHere.slice(0, 3).map(g => {
-            const gOwner = players.find(p => p.gangs.some(pg => pg.id === g.id));
-            return (
-              <div key={g.id} style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: gOwner?.color ?? '#fff' }} />
-            );
-          })}
-          {gangsHere.length > 3 && (
-            <span style={{ fontSize: '5px', color: '#fff' }}>+{gangsHere.length - 3}</span>
+          {humanGangsHere.slice(0, 3).map(({ gang, color }) => (
+            <div key={gang.id} style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: color }} />
+          ))}
+          {humanGangsHere.length > 3 && (
+            <span style={{ fontSize: '5px', color: '#fff' }}>+{humanGangsHere.length - 3}</span>
+          )}
+          {hasEnemyGangs && (
+            <div style={{ width: '5px', height: '5px', borderRadius: '2px', backgroundColor: '#cc3333' }} />
           )}
         </div>
       )}
