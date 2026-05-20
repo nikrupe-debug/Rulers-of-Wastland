@@ -1,5 +1,6 @@
 import type { Sector as SectorType, Player } from '../../types/game';
 import { BUILDING_ICONS } from '../../data/buildings';
+import type { VisibilityLevel } from '../../utils/visibility';
 
 const TERRITORY_THRESHOLD = 10;
 
@@ -10,10 +11,11 @@ interface Props {
   selected: boolean;
   isDeployTarget: boolean;
   isHighlighted: boolean;
+  visibilityLevel: VisibilityLevel;
   onClick: () => void;
 }
 
-export default function Sector({ sector, players, isHQ, selected, isDeployTarget, isHighlighted, onClick }: Props) {
+export default function Sector({ sector, players, isHQ, selected, isDeployTarget, isHighlighted, visibilityLevel, onClick }: Props) {
   const owner = players.find(p => p.id === sector.owner);
 
   const claimingPlayer = !owner && sector.controllingPlayerId
@@ -43,8 +45,10 @@ export default function Sector({ sector, players, isHQ, selected, isDeployTarget
       g.position?.[1] === sector.position[1]
     ).map(g => ({ gang: g, isHuman: p.isHuman, color: p.color }))
   );
-  const humanGangsHere = allGangsHere.filter(g => g.isHuman);
-  const hasEnemyGangs  = allGangsHere.some(g => !g.isHuman);
+  const humanGangsHere  = allGangsHere.filter(g => g.isHuman);
+  const enemyGangsHere  = allGangsHere.filter(g => !g.isHuman);
+  const showEnemyDots   = visibilityLevel === 'full' && enemyGangsHere.length > 0;
+  const showPresenceDot = visibilityLevel === 'presence' && enemyGangsHere.length > 0;
 
   const shortName = sector.name.split(' ')[0].slice(0, 6);
 
@@ -125,17 +129,26 @@ export default function Sector({ sector, players, isHQ, selected, isDeployTarget
         ))}
       </div>
 
-      {/* Gang dots — own gangs shown; enemy presence shown as red ? */}
-      {(humanGangsHere.length > 0 || hasEnemyGangs) && (
+      {/* Gang dots */}
+      {(humanGangsHere.length > 0 || showPresenceDot || showEnemyDots) && (
         <div style={{ position: 'absolute', bottom: '4px', right: '2px', display: 'flex', gap: '1px', pointerEvents: 'none' }}>
+          {/* Own gangs — always visible, round colored dots */}
           {humanGangsHere.slice(0, 3).map(({ gang, color }) => (
             <div key={gang.id} style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: color }} />
           ))}
           {humanGangsHere.length > 3 && (
             <span style={{ fontSize: '5px', color: '#fff' }}>+{humanGangsHere.length - 3}</span>
           )}
-          {hasEnemyGangs && (
-            <div style={{ width: '5px', height: '5px', borderRadius: '2px', backgroundColor: '#cc3333' }} />
+          {/* Full intel — enemy dots same style as own */}
+          {showEnemyDots && enemyGangsHere.slice(0, 2).map(({ gang, color }) => (
+            <div key={gang.id} style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: color }} />
+          ))}
+          {showEnemyDots && enemyGangsHere.length > 2 && (
+            <span style={{ fontSize: '5px', color: '#fff' }}>+{enemyGangsHere.length - 2}</span>
+          )}
+          {/* Presence only — one colored square in enemy color */}
+          {showPresenceDot && (
+            <div style={{ width: '5px', height: '5px', borderRadius: '1px', backgroundColor: enemyGangsHere[0].color }} />
           )}
         </div>
       )}

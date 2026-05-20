@@ -4,6 +4,7 @@ import type { Sector, Player, Gang } from '../../types/game';
 import { BUILDING_ICONS, BUILDING_LABELS, BUILDING_DESCRIPTIONS } from '../../data/buildings';
 import { TECH_TREE } from '../../data/techs';
 import { getGangActions, CATEGORIES, type ActionItem } from '../../utils/gangActions';
+import { getSectorVisibility } from '../../utils/visibility';
 
 const TIER_LABEL = ['I', 'II', 'III'];
 
@@ -234,8 +235,10 @@ function GangCommandView({ gang, onBack }: { gang: Gang; onBack: () => void }) {
 // ── SectorDetail ─────────────────────────────────────────────────────────────
 
 export default function SectorDetail({ sector, players, onClose }: Props) {
+  const { grid } = useGameStore();
   const human = players.find(p => p.isHuman)!;
   const owner = players.find(p => p.id === sector.owner);
+  const visibility = getSectorVisibility(sector.position, human, grid);
   const claimingPlayer = !owner && sector.controllingPlayerId
     ? players.find(p => p.id === sector.controllingPlayerId)
     : null;
@@ -304,10 +307,15 @@ export default function SectorDetail({ sector, players, onClose }: Props) {
 
         {/* Units */}
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-dim)' }}>
-            Units {allGangsHere.length === 0 ? '— None' : `(${allGangsHere.length})`}
-          </div>
-          {allGangsHere.length === 0 && (
+          {(() => {
+            const visibleCount = humanGangsHere.length + (visibility !== 'none' ? enemyGangsHere.length : 0);
+            return (
+              <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-dim)' }}>
+                Units {visibleCount === 0 ? '— None' : `(${visibleCount})`}
+              </div>
+            );
+          })()}
+          {humanGangsHere.length === 0 && (visibility === 'none' || enemyGangsHere.length === 0) && (
             <p className="text-xs" style={{ color: 'var(--text-dim)' }}>No units here.</p>
           )}
 
@@ -365,8 +373,9 @@ export default function SectorDetail({ sector, players, onClose }: Props) {
             </div>
           )}
 
-          {/* Enemy gangs — hidden */}
-          {enemyGangsHere.length > 0 && (
+          {/* Enemy gangs — visibility-gated */}
+          {enemyGangsHere.length > 0 && visibility === 'none' && null}
+          {enemyGangsHere.length > 0 && visibility === 'presence' && (
             <div className="flex items-center gap-2 p-2 rounded border"
               style={{ borderColor: '#cc333355', background: '#cc333310' }}>
               <span className="text-xl">❓</span>
@@ -378,6 +387,40 @@ export default function SectorDetail({ sector, players, onClose }: Props) {
                   Intel required to identify
                 </div>
               </div>
+            </div>
+          )}
+          {enemyGangsHere.length > 0 && visibility === 'full' && (
+            <div className="flex flex-col gap-1">
+              {enemyGangsHere.map(({ gang, player }) => (
+                <div key={gang.id} className="flex items-center gap-2 p-2 rounded border"
+                  style={{ borderColor: player.color + '55', background: player.color + '15' }}>
+                  <span className="text-xl">{gang.portrait}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold truncate" style={{ color: player.color }}>{gang.name}</div>
+                    <div className="flex items-center gap-1 mt-[3px]">
+                      <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                        <div className="h-full rounded-full" style={{
+                          width: `${Math.round((gang.morale / gang.maxMorale) * 100)}%`,
+                          background: 'var(--danger)',
+                        }} />
+                      </div>
+                      <span className="text-[9px] shrink-0" style={{ color: 'var(--text-dim)' }}>
+                        {gang.morale}/{gang.maxMorale}
+                      </span>
+                    </div>
+                    <div className="text-[9px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
+                      <span>⚔️{gang.combat}</span>
+                      <span>🎯{gang.ranged}</span>
+                      <span>👁️{gang.stealth}</span>
+                      <span>🏴{gang.control}</span>
+                    </div>
+                  </div>
+                  <span className="text-[8px] px-1 py-0.5 rounded shrink-0"
+                    style={{ background: 'var(--danger)' + '22', color: 'var(--danger)' }}>
+                    HOSTILE
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>

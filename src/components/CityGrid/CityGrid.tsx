@@ -1,5 +1,6 @@
 import { useGameStore } from '../../store/gameStore';
 import Sector from './Sector';
+import { getSectorVisibility } from '../../utils/visibility';
 
 interface Props {
   selectedPos: [number, number] | null;
@@ -14,6 +15,7 @@ export default function CityGrid({ selectedPos, highlightPos, onSectorClick, dep
 
   if (!grid.sectors.length) return null;
 
+  const human = players.find(p => p.isHuman);
   const hqPositions = players.map(p => p.hqSector);
 
   return (
@@ -25,6 +27,7 @@ export default function CityGrid({ selectedPos, highlightPos, onSectorClick, dep
             const isSelected = selectedPos !== null && selectedPos[0] === rowIdx && selectedPos[1] === colIdx;
             const isDeployTarget = deployMode && humanId !== undefined && sector.owner === humanId;
             const isHighlighted = highlightPos !== null && highlightPos[0] === rowIdx && highlightPos[1] === colIdx;
+            const visibilityLevel = human ? getSectorVisibility([rowIdx, colIdx], human, grid) : 'none';
             return (
               <Sector
                 key={`${rowIdx}-${colIdx}`}
@@ -34,6 +37,7 @@ export default function CityGrid({ selectedPos, highlightPos, onSectorClick, dep
                 selected={isSelected}
                 isDeployTarget={isDeployTarget}
                 isHighlighted={isHighlighted}
+                visibilityLevel={visibilityLevel}
                 onClick={() => onSectorClick([rowIdx, colIdx])}
               />
             );
