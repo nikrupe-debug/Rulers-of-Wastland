@@ -266,6 +266,7 @@ function BuildingInteractionView({
 }) {
   const { assignAction } = useGameStore();
   const [chosenAction, setChosenAction] = useState<'control' | 'extort' | 'use' | null>(null);
+  const [selectedGangIds, setSelectedGangIds] = useState<Set<string>>(new Set());
 
   const bOwner = players.find(p => p.id === building.owner);
   const canControl = sector.owner === human.id && building.owner !== human.id;
@@ -278,6 +279,19 @@ function BuildingInteractionView({
     g.position?.[1] === sector.position[1]
   );
 
+  function pickAction(a: 'control' | 'extort' | 'use') {
+    setChosenAction(a);
+    setSelectedGangIds(new Set());
+  }
+
+  function toggleGang(id: string) {
+    setSelectedGangIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
   function buildAction(): import('../../types/game').GangAction | null {
     if (chosenAction === 'control') return { type: 'control', targetBuildingId: building.id };
     if (chosenAction === 'extort')  return { type: 'extort',  targetBuildingId: building.id };
@@ -285,51 +299,79 @@ function BuildingInteractionView({
     return null;
   }
 
-  function assignToGang(gang: import('../../types/game').Gang) {
+  function confirmAssign() {
     const action = buildAction();
-    if (action) { assignAction(gang.id, action); onBack(); }
+    if (!action || selectedGangIds.size === 0) return;
+    for (const id of selectedGangIds) assignAction(id, action);
+    onBack();
   }
 
   // ── Gang picker ──
   if (chosenAction) {
     const verb = chosenAction === 'control' ? 'Control' : chosenAction === 'extort' ? 'Extort' : 'Use';
+    const n = selectedGangIds.size;
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
-          <button type="button" onClick={() => setChosenAction(null)}
+          <button type="button" onClick={() => { setChosenAction(null); setSelectedGangIds(new Set()); }}
             className="text-xs px-2 py-1 rounded border shrink-0"
             style={{ borderColor: 'var(--border)', color: 'var(--text-dim)', touchAction: 'manipulation' }}>←</button>
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="font-bold text-sm" style={{ color: 'var(--accent)' }}>
               {verb}: {BUILDING_LABELS[building.type]}
             </div>
-            <div className="text-[10px]" style={{ color: 'var(--text-dim)' }}>Select a unit to send</div>
+            <div className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+              Tap units to select · {n === 0 ? 'none selected' : `${n} selected`}
+            </div>
           </div>
         </div>
+
         <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1" style={{ touchAction: 'pan-y' }}>
           {humanGangsHere.length === 0 && (
             <p className="text-xs text-center py-4" style={{ color: 'var(--text-dim)' }}>No units at this location.</p>
           )}
-          {humanGangsHere.map(gang => (
-            <button key={gang.id} type="button" onClick={() => assignToGang(gang)}
-              className="flex items-center gap-2 p-2 rounded border text-left w-full"
-              style={{ borderColor: human.color + '55', background: human.color + '15', touchAction: 'manipulation' }}>
-              <span className="text-xl">{gang.portrait}</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold truncate" style={{ color: human.color }}>{gang.name}</div>
-                <div className="text-[9px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
-                  <span>⚔️{gang.combat}</span><span>🎯{gang.ranged}</span>
-                  <span>👁️{gang.stealth}</span><span>🏴{gang.control}</span>
-                </div>
-              </div>
-              {gang.currentAction && (
-                <span className="text-[8px] px-1 py-0.5 rounded shrink-0"
-                  style={{ background: 'var(--success)33', color: 'var(--success)' }}>
-                  {gang.currentAction.type.toUpperCase()}
+          {humanGangsHere.map(gang => {
+            const isSelected = selectedGangIds.has(gang.id);
+            return (
+              <button key={gang.id} type="button" onClick={() => toggleGang(gang.id)}
+                className="flex items-center gap-2 p-2 rounded border text-left w-full"
+                style={{
+                  borderColor: isSelected ? human.color : human.color + '44',
+                  background: isSelected ? human.color + '30' : human.color + '10',
+                  touchAction: 'manipulation',
+                }}>
+                <span className="text-lg shrink-0" style={{ opacity: isSelected ? 1 : 0.5 }}>
+                  {isSelected ? '☑' : '☐'}
                 </span>
-              )}
-            </button>
-          ))}
+                <span className="text-xl">{gang.portrait}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold truncate" style={{ color: human.color }}>{gang.name}</div>
+                  <div className="text-[9px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
+                    <span>⚔️{gang.combat}</span><span>🎯{gang.ranged}</span>
+                    <span>👁️{gang.stealth}</span><span>🏴{gang.control}</span>
+                  </div>
+                </div>
+                {gang.currentAction && (
+                  <span className="text-[8px] px-1 py-0.5 rounded shrink-0"
+                    style={{ background: 'var(--success)33', color: 'var(--success)' }}>
+                    {gang.currentAction.type.toUpperCase()}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="px-3 py-2 border-t" style={{ borderColor: 'var(--border)' }}>
+          <button type="button" onClick={confirmAssign} disabled={n === 0}
+            className="w-full py-2.5 rounded font-bold text-sm"
+            style={{
+              background: n > 0 ? 'var(--accent)' : 'var(--border)',
+              color: n > 0 ? '#000' : 'var(--text-dim)',
+              touchAction: 'manipulation',
+            }}>
+            {n === 0 ? 'Select units first' : `Assign to ${n} unit${n > 1 ? 's' : ''} ✓`}
+          </button>
         </div>
       </div>
     );
@@ -373,7 +415,7 @@ function BuildingInteractionView({
         {/* Action buttons */}
         <div className="flex flex-col gap-2">
           {canControl && (
-            <button type="button" onClick={() => setChosenAction('control')}
+            <button type="button" onClick={() => pickAction('control')}
               className="w-full py-2.5 rounded font-bold text-sm"
               style={{ background: 'var(--accent)', color: '#000', touchAction: 'manipulation' }}>
               Control
@@ -385,14 +427,14 @@ function BuildingInteractionView({
             </div>
           )}
           {canExtort && (
-            <button type="button" onClick={() => setChosenAction('extort')}
+            <button type="button" onClick={() => pickAction('extort')}
               className="w-full py-2.5 rounded font-bold text-sm border"
               style={{ borderColor: 'var(--accent)', color: 'var(--accent)', background: 'transparent', touchAction: 'manipulation' }}>
               Extort
             </button>
           )}
           {canUse && (
-            <button type="button" onClick={() => setChosenAction('use')}
+            <button type="button" onClick={() => pickAction('use')}
               className="w-full py-2.5 rounded font-bold text-sm border"
               style={{ borderColor: 'var(--success)', color: 'var(--success)', background: 'transparent', touchAction: 'manipulation' }}>
               Use — Heal
