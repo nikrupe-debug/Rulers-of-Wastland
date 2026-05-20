@@ -6,6 +6,7 @@ import ActionPanel from './components/ActionPanel/ActionPanel';
 import EventLog from './components/EventLog/EventLog';
 import SetupScreen from './components/SetupScreen/SetupScreen';
 import SectorDetail from './components/SectorDetail/SectorDetail';
+import PlayerCard from './components/PlayerCard/PlayerCard';
 import type { Gang, VictoryType } from './types/game';
 import { getAdjacentPositions } from './utils/grid';
 
@@ -26,6 +27,7 @@ export default function App() {
   const [pendingDeploy, setPendingDeploy] = useState<Gang | null>(null);
   const [moveReady, setMoveReady]         = useState<{ gangIds: string[]; from: [number, number] } | null>(null);
   const [gangHighlight, setGangHighlight] = useState<[number, number] | null>(null);
+  const [showPlayerCard, setShowPlayerCard] = useState(false);
 
   if (players.length === 0) return <SetupScreen />;
 
@@ -74,6 +76,7 @@ export default function App() {
       }
     }
 
+    setShowPlayerCard(false);
     setSectorView(pos);
   }
 
@@ -97,7 +100,11 @@ export default function App() {
       {/* HUD */}
       <div className="px-3 py-2 border-b text-xs" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between mb-1">
-          <span className="font-bold" style={{ color: human.color }}>{human.name}</span>
+          <button type="button" onClick={() => setShowPlayerCard(v => !v)}
+            className="font-bold text-left"
+            style={{ color: human.color, touchAction: 'manipulation' }}>
+            {human.name} ›
+          </button>
           <span style={{ color: alertSystem.level >= 3 ? 'var(--danger)' : 'var(--text-dim)', letterSpacing: '-1px' }}>
             {ALERT_LABELS[alertSystem.level]} {'▮'.repeat(alertSystem.level)}{'▯'.repeat(5 - alertSystem.level)}
           </span>
@@ -148,7 +155,9 @@ export default function App() {
           </div>
         )}
 
-        {!pendingDeploy && viewedSector ? (
+        {showPlayerCard ? (
+          <PlayerCard onClose={() => setShowPlayerCard(false)} />
+        ) : !pendingDeploy && viewedSector ? (
           <SectorDetail
             sector={viewedSector}
             players={players}
