@@ -87,11 +87,12 @@ export default function RecruitPanel({ onHireRequest }: Props) {
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-sm truncate">{gang.name}</div>
                   <div className="text-[10px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
-                    <span>⚔️{gang.combat}</span>
-                    <span>🎯{gang.ranged}</span>
+                    <span>⚔{gang.attack}</span>
+                    <span>🛡{gang.defense}</span>
                     <span>👁️{gang.stealth}</span>
                     <span>🏴{gang.control}</span>
-                    <span>❤️{gang.maxMorale}</span>
+                    <span>❤️{gang.maxHp}</span>
+                    {gang.divine > 0 && <span>✝{gang.divine}</span>}
                   </div>
                 </div>
                 <span
@@ -121,14 +122,15 @@ export default function RecruitPanel({ onHireRequest }: Props) {
               </div>
             </div>
             <div className="flex flex-col gap-1 mb-3">
-              <StatBar label="Combat"   value={selected.combat}   max={10} />
-              <StatBar label="Ranged"   value={selected.ranged}   max={10} />
+              <StatBar label="Attack"   value={selected.attack}   max={10} />
+              <StatBar label="Defense"  value={selected.defense}  max={10} />
               <StatBar label="Stealth"  value={selected.stealth}  max={10} />
               <StatBar label="Control"  value={selected.control}  max={10} />
               <StatBar label="Research" value={selected.research} max={10} />
+              {selected.divine > 0 && <StatBar label="Divine" value={selected.divine} max={10} />}
             </div>
             <div className="flex justify-between text-[10px]" style={{ color: 'var(--text-dim)' }}>
-              <span>❤️ {selected.maxMorale} morale</span>
+              <span>❤️ {selected.maxHp} HP · ★{selected.maxMorale} morale</span>
               <span>Upkeep: ${selected.maintenanceCost}/turn</span>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type {
   GameState, Player, Gang, Sector, CityGrid,
-  GangAction, LogEntry, Phase, AIDifficulty, AlertLevel, VictoryType,
+  GangAction, LogEntry, Phase, AIDifficulty, AlertLevel, VictoryType, GangTier,
 } from '../types/game';
 import { GANG_ROSTER, createGangInstance } from '../data/gangs';
 import { createBuilding, randomBuildingTypes } from '../data/buildings';
@@ -48,6 +48,8 @@ function buildInitialPlayers(
     color: '#e8a020',
     unlockedTechs: [],
     researchProgress: {},
+    religionGiftsTriggered: [],
+    divineSightTurns: 0,
   };
   const aiHQ: [number, number] = [7, 7];
   const ai: Player = {
@@ -64,15 +66,19 @@ function buildInitialPlayers(
     color: '#cc3333',
     unlockedTechs: [],
     researchProgress: {},
+    religionGiftsTriggered: [],
+    divineSightTurns: 0,
   };
   return [human, ai];
 }
 
-function pickAvailableGangs(): Gang[] {
-  const shuffled = [...GANG_ROSTER].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, 3).map((t, i) =>
-    createGangInstance(t, 'recruit_pool', i)
-  );
+function pickAvailableGangs(reputation: number = 0): Gang[] {
+  // Higher reputation unlocks higher-tier gangs in the recruit pool
+  const maxTier = Math.min(6, Math.floor(reputation / 20) + 1) as GangTier;
+  const pool = GANG_ROSTER.filter(t => t.tier <= maxTier);
+  const source = pool.length >= 3 ? pool : GANG_ROSTER;
+  const shuffled = [...source].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 3).map((t, i) => createGangInstance(t, 'recruit_pool', i));
 }
 
 function pickAIStartingGangs(difficulty: AIDifficulty, hqSector: [number, number]): Gang[] {
@@ -87,23 +93,14 @@ function pickAIStartingGangs(difficulty: AIDifficulty, hqSector: [number, number
 // ── Store types ───────────────────────────────────────────────────────────────
 
 interface GameStore extends GameState {
-  // Setup
   initGame: (humanName: string, difficulty: AIDifficulty, victoryMode?: VictoryType) => void;
   resetGame: () => void;
-
-  // Phase control
   setPhase: (phase: Phase) => void;
   skipRecruit: () => void;
   resolveOrders: () => void;
-
-  // Gang actions
   assignAction: (gangId: string, action: GangAction) => void;
   recruitGang: (gangId: string, playerId: string, position: [number, number]) => void;
-
-  // Log
   addLog: (entry: Omit<LogEntry, 'turn'>) => void;
-
-  // Alert
   raiseAlert: (amount: number, trigger: string) => void;
   lowerAlert: (amount: number) => void;
 }
@@ -111,7 +108,6 @@ interface GameStore extends GameState {
 // ── Store ─────────────────────────────────────────────────────────────────────
 
 export const useGameStore = create<GameStore>((set, _get) => ({
-  // Initial state — pre-game
   turn: 0,
   phase: 'recruit',
   players: [],
@@ -131,7 +127,6 @@ export const useGameStore = create<GameStore>((set, _get) => ({
     const grid = buildGrid();
     const [human, ai] = buildInitialPlayers(humanName, difficulty);
 
-    // Mark HQ sectors
     grid.sectors[0][0].owner = human.id;
     grid.sectors[7][7].owner = ai.id;
 
@@ -141,7 +136,7 @@ export const useGameStore = create<GameStore>((set, _get) => ({
       players: [human, ai],
       currentPlayerIndex: 0,
       grid,
-      availableGangs: pickAvailableGangs(),
+      availableGangs: pickAvailableGangs(0),
       eventLog: [{
         turn: 1,
         message: 'The wasteland awaits. Make your first move, Overlord.',
@@ -174,7 +169,7 @@ export const useGameStore = create<GameStore>((set, _get) => ({
             players: state.players.map(p =>
               !p.isHuman
                 ? { ...p, cash: p.cash - recruit.hiringCost, gangs: [...p.gangs, newGang] }
-                : p
+                : p,
             ),
             availableGangs: state.availableGangs.filter(g => g.id !== recruit.id),
           };
@@ -186,6 +181,7 @@ export const useGameStore = create<GameStore>((set, _get) => ({
     const newAlertRaw = (state.alertSystem.level as number) + result.alertDelta;
     const newAlertLevel = Math.min(5, Math.max(0, newAlertRaw)) as AlertLevel;
     const newEntries: LogEntry[] = result.log.map(e => ({ ...e, turn: state.turn }));
+    const humanPlayer = result.players.find(p => p.isHuman);
 
     return {
       players: result.players,
@@ -193,7 +189,9 @@ export const useGameStore = create<GameStore>((set, _get) => ({
       winner: result.winner,
       phase: result.winner ? 'end' : 'recruit',
       turn: result.winner ? state.turn : state.turn + 1,
-      availableGangs: result.winner ? state.availableGangs : pickAvailableGangs(),
+      availableGangs: result.winner
+        ? state.availableGangs
+        : pickAvailableGangs(humanPlayer?.prestige ?? 0),
       eventLog: [...newEntries, ...state.eventLog].slice(0, 100),
       alertSystem: { level: newAlertLevel, triggers: [] },
     };
@@ -205,7 +203,7 @@ export const useGameStore = create<GameStore>((set, _get) => ({
     const players = state.players.map(p => ({
       ...p,
       gangs: p.gangs.map(g =>
-        g.id === gangId ? { ...g, currentAction: action } : g
+        g.id === gangId ? { ...g, currentAction: action } : g,
       ),
     }));
     return { players };

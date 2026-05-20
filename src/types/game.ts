@@ -1,23 +1,41 @@
 export type Phase = 'recruit' | 'orders' | 'resolution' | 'end';
 export type GangStatus = 'active' | 'hiding' | 'healing' | 'dead';
+export type GangTier = 1 | 2 | 3 | 4 | 5 | 6;
 export type BuildingType =
-  | 'hospital' | 'factory' | 'bank' | 'research_lab'
-  | 'police_hq' | 'nightclub' | 'warehouse' | 'media_tower';
+  | 'communication_center' | 'casino'    | 'altar'         | 'laboratory'
+  | 'weaponry'             | 'military_base' | 'police_station' | 'hospital'
+  | 'taxing_center'        | 'market'    | 'black_market'  | 'armory';
 export type EquipmentType = 'weapon' | 'armor' | 'gadget';
 export type VictoryType = 'elimination' | 'domination' | 'territory' | 'greed' | 'prestige';
 export type AlertLevel = 0 | 1 | 2 | 3 | 4 | 5;
 export type AIDifficulty = 'easy' | 'medium' | 'hard';
 export type TechTier = 1 | 2 | 3;
+export type DivineSKill =
+  | 'haste' | 'divine_sight'
+  | 'conjure_familiar_base' | 'conjure_familiar_upgraded'
+  | 'bless_base' | 'bless_upgraded';
+
+export type GangStatBonus = Partial<{
+  attack:   number;
+  defense:  number;
+  stealth:  number;
+  control:  number;
+  research: number;
+  divine:   number;
+}>;
 
 export interface BuildingBonus {
-  healSpeed?: number;
-  equipmentCostReduction?: number;
-  incomeBonus?: number;
-  researchSpeed?: number;
-  alertIncrease?: number;
-  prestigePerTurn?: number;
-  equipmentSlots?: number;
-  revealsEnemyPositions?: boolean;
+  incomeBonus?:         number;   // global per turn
+  reputationPerTurn?:   number;   // ± prestige per turn (casino +, taxing -)
+  prayBonus?:           number;   // tile-local: +N when praying
+  researchBonus?:       number;   // tile-local: +N when researching
+  healBonus?:           number;   // tile-local: +N heal per turn
+  attackBonus?:         number;   // tile-local: +N in combat
+  defenseBonus?:        number;   // tile-local: +N in combat
+  revealsAdjacentTiles?: boolean; // communication center
+  grantEquipmentTier?:  number;   // one-time on first capture
+  reduceWanted?:        number;   // police station per turn
+  increaseWanted?:      number;   // black market per turn
 }
 
 export interface Building {
@@ -26,9 +44,10 @@ export interface Building {
   owner: string | null;
   controlled: boolean;
   bonus: BuildingBonus;
-  controlProgress: number;       // 0–10
+  controlProgress: number;
   controllingPlayerId: string | null;
-  extortedBy: string[];          // player ids that have extorted this building
+  extortedBy: string[];
+  equipmentGranted: boolean;
 }
 
 export interface Equipment {
@@ -36,7 +55,8 @@ export interface Equipment {
   name: string;
   type: EquipmentType;
   cost: number;
-  bonus: Partial<Pick<Gang, 'combat' | 'ranged' | 'stealth'>>;
+  tier: number;
+  bonus: GangStatBonus;
   uses: number | 'unlimited';
 }
 
@@ -50,7 +70,8 @@ export type GangAction =
   | { type: 'equip';     equipmentId: string }
   | { type: 'bribe' }
   | { type: 'hide' }
-  | { type: 'heal' };
+  | { type: 'heal' }
+  | { type: 'pray' };
 
 export interface Gang {
   id: string;
@@ -58,13 +79,22 @@ export interface Gang {
   flavor: string;
   portrait: string;
   position: [number, number] | null;
-  combat: number;
-  ranged: number;
+  attack: number;
+  defense: number;
   stealth: number;
   control: number;
   research: number;
+  divine: number;
   morale: number;
   maxMorale: number;
+  hp: number;
+  maxHp: number;
+  tier: GangTier;
+  divineSkills: DivineSKill[];
+  lowHpRounds: number;
+  underpaidRounds: number;
+  blessBonus: number;
+  blessTurns: number;
   hiringCost: number;
   maintenanceCost: number;
   equipment: Equipment[];
@@ -79,7 +109,7 @@ export interface Sector {
   controlProgress: number;
   controllingPlayerId: string | null;
   buildings: Building[];
-  gangsPresent: string[]; // gang ids
+  gangsPresent: string[];
 }
 
 export interface CityGrid {
@@ -124,6 +154,8 @@ export interface Player {
   color: string;
   unlockedTechs: string[];
   researchProgress: Record<string, number>;
+  religionGiftsTriggered: number[];
+  divineSightTurns: number;
 }
 
 export interface LogEntry {

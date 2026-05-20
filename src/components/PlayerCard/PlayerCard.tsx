@@ -21,6 +21,7 @@ export default function PlayerCard({ onClose }: Props) {
   const totalIncome = BASE_INCOME + buildingIncome;
   const maintenance = activeGangs.reduce((sum, g) => sum + g.maintenanceCost, 0);
   const net = totalIncome - maintenance;
+  const divinePower = activeGangs.reduce((sum, g) => sum + g.divine, 0);
 
   const incomeByType = ownedBuildings
     .filter(b => b.bonus.incomeBonus)
@@ -64,11 +65,12 @@ export default function PlayerCard({ onClose }: Props) {
           <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-dim)' }}>Status</div>
           <div className="grid grid-cols-2 gap-1">
             {([
-              { icon: '$',  label: 'Cash',       value: human.cash,     danger: false },
-              { icon: '⚔',  label: 'Gangs',      value: activeGangs.length, danger: false },
-              { icon: '★',  label: 'Reputation', value: human.prestige, danger: false },
-              { icon: '✝',  label: 'Faith',      value: human.religion, danger: false },
-              { icon: '⚠',  label: 'Wanted',     value: human.wanted,   danger: human.wanted > 0 },
+              { icon: '$',  label: 'Cash',         value: human.cash,        danger: false },
+              { icon: '⚔',  label: 'Gangs',        value: activeGangs.length,danger: false },
+              { icon: '★',  label: 'Reputation',   value: human.prestige,    danger: false },
+              { icon: '✝',  label: 'Faith',        value: human.religion,    danger: false },
+              { icon: '✴',  label: 'Divine Power', value: divinePower,       danger: false },
+              { icon: '⚠',  label: 'Wanted',       value: human.wanted,      danger: human.wanted > 0 },
             ] as const).map(({ icon, label, value, danger }) => (
               <div key={label} className="flex items-center gap-2 px-2 py-1.5 rounded"
                 style={{ background: 'var(--surface2)' }}>

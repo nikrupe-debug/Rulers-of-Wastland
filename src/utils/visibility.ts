@@ -11,31 +11,31 @@ export function getSectorVisibility(
   human: Player,
   grid: CityGrid,
 ): VisibilityLevel {
-  // Global full reveal: surveillance_net tech
-  if (human.unlockedTechs.includes('surveillance_net')) return 'full';
-
-  // Global full reveal: any controlled media_tower
-  const hasMediaTower = grid.sectors.flat().some(s =>
-    s.buildings.some(b => b.type === 'media_tower' && b.owner === human.id)
-  );
-  if (hasMediaTower) return 'full';
+  // Global reveal: surveillance_net tech or active divine sight
+  if (human.unlockedTechs.includes('surveillance_net') || human.divineSightTurns > 0) return 'full';
 
   // Sight radius: 1 by default, +1 with street_intel
   const sightRadius = human.unlockedTechs.includes('street_intel') ? 2 : 1;
 
   const activeGangs = human.gangs.filter(g => g.status !== 'dead' && g.position != null);
 
-  // Gang occupying this exact sector → full visibility (they can see everything here)
+  // Gang on this exact sector → full visibility
   const gangHere = activeGangs.some(
-    g => g.position![0] === sectorPos[0] && g.position![1] === sectorPos[1]
+    g => g.position![0] === sectorPos[0] && g.position![1] === sectorPos[1],
   );
   if (gangHere) return 'full';
 
-  // Gang within sight radius → presence (know something is there, not who)
+  // Owned communication center reveals adjacent tiles
+  const commCenterReveals = grid.sectors.flat()
+    .filter(s => s.buildings.some(b => b.type === 'communication_center' && b.owner === human.id))
+    .some(s => manhattanDist(s.position, sectorPos) <= 1);
+  if (commCenterReveals) return 'full';
+
+  // Gang within sight radius → presence
   const withinRange = activeGangs.some(g => manhattanDist(g.position!, sectorPos) <= sightRadius);
   if (withinRange) return 'presence';
 
-  // HQ always shows presence as a baseline (you live there)
+  // HQ always shows presence
   if (sectorPos[0] === human.hqSector[0] && sectorPos[1] === human.hqSector[1]) return 'presence';
 
   return 'none';

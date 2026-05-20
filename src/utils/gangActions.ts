@@ -21,6 +21,7 @@ export const CATEGORIES: { key: string; label: string }[] = [
   { key: 'control',   label: 'Control' },
   { key: 'extort',    label: 'Extort' },
   { key: 'research',  label: 'Research' },
+  { key: 'divine',    label: 'Divine' },
   { key: 'utilities', label: 'Utilities' },
 ];
 
@@ -91,7 +92,20 @@ export function getGangActions(
     });
   });
 
-  if (gang.morale < gang.maxMorale)
+  // Divine: pray if gang has divine score or is on an owned altar
+  const altarBonus = sector.buildings
+    .filter(b => b.owner === human.id)
+    .reduce((sum, b) => sum + (b.bonus.prayBonus ?? 0), 0);
+  const prayValue = gang.divine + altarBonus;
+  if (prayValue > 0) {
+    items.push({
+      label: `Pray  +${prayValue} faith${altarBonus > 0 ? ' (altar)' : ''}`,
+      action: { type: 'pray' },
+      category: 'divine',
+    });
+  }
+
+  if (gang.hp < gang.maxHp)
     items.push({ label: 'Heal', action: { type: 'heal' }, category: 'utilities' });
   items.push({ label: 'Hide  −1 Alert', action: { type: 'hide' }, category: 'utilities' });
   if (human.cash >= BRIBE_COST)

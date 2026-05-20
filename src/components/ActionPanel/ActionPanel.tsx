@@ -209,7 +209,7 @@ export default function ActionPanel({ onGangSelect, onMoveReady, onMoveClear }: 
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold truncate">{gang.name}</div>
                 <div className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
-                  ❤️ {gang.morale}/{gang.maxMorale} · [{gang.position?.join(',') ?? '–'}]
+                  ❤️ {gang.hp}/{gang.maxHp} · ★{gang.morale} · [{gang.position?.join(',') ?? '–'}]
                 </div>
               </div>
               <div className="text-[10px] text-right shrink-0"

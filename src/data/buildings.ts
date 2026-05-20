@@ -1,52 +1,69 @@
 import type { Building, BuildingBonus, BuildingType } from '../types/game';
 
 export const BUILDING_BONUSES: Record<BuildingType, BuildingBonus> = {
-  hospital:     { healSpeed: 2 },
-  factory:      { equipmentCostReduction: 0.30 },
-  bank:         { incomeBonus: 200 },
-  research_lab: { researchSpeed: 2 },
-  police_hq:    { alertIncrease: 1 },
-  nightclub:    { prestigePerTurn: 5 },
-  warehouse:    { equipmentSlots: 2 },
-  media_tower:  { prestigePerTurn: 10, revealsEnemyPositions: true },
+  communication_center: { revealsAdjacentTiles: true },
+  casino:               { incomeBonus: 150, reputationPerTurn: 2 },
+  altar:                { prayBonus: 5 },
+  laboratory:           { researchBonus: 5 },
+  weaponry:             { grantEquipmentTier: 1 },
+  military_base:        { grantEquipmentTier: 2 },
+  police_station:       { reduceWanted: 1 },
+  hospital:             { healBonus: 5 },
+  taxing_center:        { incomeBonus: 100, reputationPerTurn: -2 },
+  market:               { incomeBonus: 75 },
+  black_market:         { incomeBonus: 50, increaseWanted: 1 },
+  armory:               { attackBonus: 1, defenseBonus: 1 },
 };
 
 export const BUILDING_LABELS: Record<BuildingType, string> = {
-  hospital:     'Hospital',
-  factory:      'Factory',
-  bank:         'Bank',
-  research_lab: 'Research Lab',
-  police_hq:    'Police HQ',
-  nightclub:    'Nightclub',
-  warehouse:    'Warehouse',
-  media_tower:  'Media Tower',
+  communication_center: 'Comm Center',
+  casino:               'Casino',
+  altar:                'Altar',
+  laboratory:           'Laboratory',
+  weaponry:             'Weaponry',
+  military_base:        'Military Base',
+  police_station:       'Police Station',
+  hospital:             'Hospital',
+  taxing_center:        'Taxing Center',
+  market:               'Market',
+  black_market:         'Black Market',
+  armory:               'Armory',
 };
 
 export const BUILDING_DESCRIPTIONS: Record<BuildingType, string> = {
-  hospital:     'Gangs heal 2× faster in this sector',
-  factory:      'Equipment costs 30% less',
-  bank:         '+$200 income per turn',
-  research_lab: '+2 research points per turn',
-  police_hq:    'Raises alert for ALL players while held',
-  nightclub:    '+5 prestige per turn',
-  warehouse:    'Hold 2 extra equipment items',
-  media_tower:  '+10 prestige/turn · reveals enemy positions',
+  communication_center: 'Reveals all adjacent sectors',
+  casino:               '+$150 income · +2 reputation/turn',
+  altar:                '+5 to Pray action on this tile',
+  laboratory:           '+5 research when studying here',
+  weaponry:             'Grants T1 equipment on capture',
+  military_base:        'Grants T2 equipment on capture',
+  police_station:       'Reduces your wanted level by 1/turn',
+  hospital:             '+5 HP when healing here',
+  taxing_center:        '+$100 income · −2 reputation/turn',
+  market:               '+$75 income per turn',
+  black_market:         '+$50 income · +1 wanted/turn',
+  armory:               '+1 Attack & Defense in combat here',
 };
 
 export const BUILDING_ICONS: Record<BuildingType, string> = {
-  hospital:     '🏥',
-  factory:      '🏭',
-  bank:         '🏦',
-  research_lab: '🔬',
-  police_hq:    '🚔',
-  nightclub:    '🎰',
-  warehouse:    '🏗️',
-  media_tower:  '📺',
+  communication_center: '📡',
+  casino:               '🎰',
+  altar:                '⛪',
+  laboratory:           '🔬',
+  weaponry:             '🔫',
+  military_base:        '🏛️',
+  police_station:       '🚔',
+  hospital:             '🏥',
+  taxing_center:        '🏦',
+  market:               '🏪',
+  black_market:         '🕶️',
+  armory:               '⚔️',
 };
 
 const ALL_TYPES: BuildingType[] = [
-  'hospital', 'factory', 'bank', 'research_lab',
-  'police_hq', 'nightclub', 'warehouse', 'media_tower',
+  'communication_center', 'casino',    'altar',         'laboratory',
+  'weaponry',             'military_base', 'police_station', 'hospital',
+  'taxing_center',        'market',    'black_market',  'armory',
 ];
 
 let _buildingCounter = 0;
@@ -61,6 +78,7 @@ export function createBuilding(type: BuildingType): Building {
     controlProgress: 0,
     controllingPlayerId: null,
     extortedBy: [],
+    equipmentGranted: false,
   };
 }
 

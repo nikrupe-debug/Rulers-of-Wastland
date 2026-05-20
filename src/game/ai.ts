@@ -10,6 +10,8 @@ const WEIGHTS: Record<AIDifficulty, {
   hard:   { aggression: 0.7, expansion: 0.8, economy: 0.6, stealth: 0.5 },
 };
 
+const INCOME_BUILDINGS = new Set(['casino', 'taxing_center', 'market', 'black_market']);
+
 export function pickAIActions(
   aiPlayer: Player,
   state: GameState,
@@ -35,17 +37,16 @@ function chooseAction(
 ): GangAction {
   const pos = gang.position!;
 
-  // Heal if low morale
-  if (gang.morale < gang.maxMorale * 0.3) {
+  // Heal if HP is critically low
+  if (gang.hp < gang.maxHp * 0.3) {
     return { type: 'heal' };
   }
 
   const sector = state.grid.sectors[pos[0]][pos[1]];
 
-  // Score possible actions
   const scores: { action: GangAction; score: number }[] = [];
 
-  // Claim territory first, then control buildings
+  // Claim territory, then control buildings (prefer income buildings)
   if (sector.owner !== ai.id) {
     scores.push({
       action: { type: 'territory', targetSector: pos },
@@ -54,9 +55,10 @@ function chooseAction(
   } else {
     const uncontrolledBuilding = sector.buildings.find(b => b.owner !== ai.id);
     if (uncontrolledBuilding) {
+      const incomeWeight = INCOME_BUILDINGS.has(uncontrolledBuilding.type) ? w.economy * 2 : 0;
       scores.push({
         action: { type: 'control', targetBuildingId: uncontrolledBuilding.id },
-        score: w.expansion * gang.control + (uncontrolledBuilding.type === 'bank' ? w.economy * 2 : 0),
+        score: w.expansion * gang.control + incomeWeight,
       });
     }
   }
@@ -65,12 +67,12 @@ function chooseAction(
   const humanGangsHere = human.gangs.filter(g =>
     g.status === 'active' &&
     g.position?.[0] === pos[0] &&
-    g.position?.[1] === pos[1]
+    g.position?.[1] === pos[1],
   );
   if (humanGangsHere.length > 0) {
     scores.push({
       action: { type: 'attack', targetGangId: pick(humanGangsHere).id },
-      score: w.aggression * gang.combat,
+      score: w.aggression * gang.attack,
     });
   }
 
@@ -80,7 +82,7 @@ function chooseAction(
     const target = human.gangs.find(g => g.status === 'active' && g.position)?.position
       ?? human.hqSector;
     const best = adjacent.reduce((a, b) =>
-      distance(a, target) < distance(b, target) ? a : b
+      distance(a, target) < distance(b, target) ? a : b,
     );
     scores.push({
       action: { type: 'move', target: best },
@@ -88,13 +90,11 @@ function chooseAction(
     });
   }
 
-  // Fallback: move toward human HQ
   if (scores.length === 0) {
     const adj = getAdjacentPositions(pos);
     return { type: 'move', target: pick(adj.length ? adj : [pos]) };
   }
 
-  // Pick highest scoring action (with small random variance for easy)
   const variance = w.aggression < 0.4 ? Math.random() * 0.3 : 0;
   scores.sort((a, b) => (b.score + variance) - a.score);
   return scores[0].action;

@@ -9,47 +9,41 @@ export interface CombatResult {
   log: string;
 }
 
-function equipBonus(gang: Gang, stat: 'combat' | 'ranged'): number {
+interface TileBonus {
+  attack: number;
+  defense: number;
+}
+
+const ZERO_BONUS: TileBonus = { attack: 0, defense: 0 };
+
+function equipSum(gang: Gang, stat: 'attack' | 'defense' | 'stealth'): number {
   return gang.equipment.reduce((sum, e) => sum + (e.bonus[stat] ?? 0), 0);
 }
 
-export function resolveMelee(attacker: Gang, defender: Gang): CombatResult {
-  const atkRoll = attacker.combat + d6() + equipBonus(attacker, 'combat');
-  const defRoll = defender.combat + d6() + equipBonus(defender, 'combat');
+export function resolveCombat(
+  attacker: Gang,
+  defender: Gang,
+  attackerTile: TileBonus = ZERO_BONUS,
+  defenderTile: TileBonus = ZERO_BONUS,
+): CombatResult {
+  const blessA = attacker.blessTurns > 0 ? attacker.blessBonus : 0;
+  const blessD = defender.blessTurns  > 0 ? defender.blessBonus  : 0;
 
-  const defenderDamage = atkRoll > defRoll ? atkRoll - defRoll : 0;
-  const attackerDamage = defRoll > atkRoll ? defRoll - atkRoll : 0;
+  const atkRoll = attacker.attack  + d6() + equipSum(attacker, 'attack')  + attackerTile.attack  + blessA;
+  const defRoll = defender.defense + d6() + equipSum(defender, 'defense') + defenderTile.defense;
+  const cntRoll = defender.attack  + d6() + equipSum(defender, 'attack')  + defenderTile.attack  + blessD;
+  const cntDefRoll = attacker.defense + d6() + equipSum(attacker, 'defense') + attackerTile.defense;
 
-  return {
-    attackerDamage,
-    defenderDamage,
-    attackerEliminated: attacker.morale - attackerDamage <= 0,
-    defenderEliminated: defender.morale - defenderDamage <= 0,
-    log: `${attacker.name} [${atkRoll}] vs ${defender.name} [${defRoll}] — ${
-      defenderDamage > 0 ? `${defender.name} takes ${defenderDamage} damage` :
-      attackerDamage > 0 ? `${attacker.name} takes ${attackerDamage} damage` :
-      'no damage (tie)'
-    }`,
-  };
-}
-
-export function resolveRanged(attacker: Gang, defender: Gang): CombatResult {
-  const atkRoll = attacker.ranged + d6() + equipBonus(attacker, 'ranged');
-  const defRoll = defender.combat + d6() + equipBonus(defender, 'combat');
-
-  const defenderDamage = atkRoll > defRoll ? atkRoll - defRoll : 0;
-  // ranged counter-damage is halved
-  const attackerDamage = defRoll > atkRoll ? Math.ceil((defRoll - atkRoll) / 2) : 0;
+  const defenderDamage = Math.max(0, atkRoll - defRoll);
+  const attackerDamage = Math.max(0, cntRoll - cntDefRoll);
 
   return {
     attackerDamage,
     defenderDamage,
-    attackerEliminated: attacker.morale - attackerDamage <= 0,
-    defenderEliminated: defender.morale - defenderDamage <= 0,
-    log: `${attacker.name} [ranged ${atkRoll}] vs ${defender.name} [${defRoll}] — ${
-      defenderDamage > 0 ? `${defender.name} takes ${defenderDamage} damage` :
-      attackerDamage > 0 ? `${attacker.name} takes ${attackerDamage} return fire` :
-      'miss'
-    }`,
+    attackerEliminated: attacker.hp - attackerDamage <= 0,
+    defenderEliminated: defender.hp - defenderDamage <= 0,
+    log: `${attacker.name} [${atkRoll}atk vs ${defRoll}def] → ${
+      defenderDamage > 0 ? `${defender.name} −${defenderDamage} HP` : 'no hit'
+    }${attackerDamage > 0 ? ` / counter −${attackerDamage} HP` : ''}`,
   };
 }

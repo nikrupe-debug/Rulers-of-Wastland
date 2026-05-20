@@ -98,7 +98,7 @@ function GangCommandView({
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm truncate" style={{ color: 'var(--accent)' }}>{gang.name}</div>
           <div className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
-            ❤️ {gang.morale}/{gang.maxMorale}
+            ❤️ {gang.hp}/{gang.maxHp} · ★{gang.morale}/{gang.maxMorale}
             {gang.currentAction && (
               <span className="ml-2" style={{ color: 'var(--success)' }}>
                 · {gang.currentAction.type.toUpperCase()} set
@@ -113,11 +113,12 @@ function GangCommandView({
         {/* Stat bars */}
         <div className="rounded border p-2 mb-1" style={{ borderColor: 'var(--border)', background: 'var(--surface2)' }}>
           <div className="flex flex-col gap-1">
-            <StatBar label="Combat"   value={gang.combat}   max={10} />
-            <StatBar label="Ranged"   value={gang.ranged}   max={10} />
+            <StatBar label="Attack"   value={gang.attack}   max={10} />
+            <StatBar label="Defense"  value={gang.defense}  max={10} />
             <StatBar label="Stealth"  value={gang.stealth}  max={10} />
             <StatBar label="Control"  value={gang.control}  max={10} />
             <StatBar label="Research" value={gang.research} max={10} />
+            {gang.divine > 0 && <StatBar label="Divine" value={gang.divine} max={10} />}
           </div>
         </div>
 
@@ -343,8 +344,9 @@ function BuildingInteractionView({
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-bold truncate" style={{ color: human.color }}>{gang.name}</div>
                   <div className="text-[9px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
-                    <span>⚔️{gang.combat}</span><span>🎯{gang.ranged}</span>
-                    <span>👁️{gang.stealth}</span><span>🏴{gang.control}</span>
+                    <span>⚔{gang.attack}</span><span>🛡{gang.defense}</span>
+                    <span>❤️{gang.hp}/{gang.maxHp}</span>
+                    {gang.divine > 0 && <span>✝{gang.divine}</span>}
                   </div>
                 </div>
                 {gang.currentAction && (
@@ -620,19 +622,19 @@ export default function SectorDetail({ sector, players, onClose, onMoveReady, on
                       <div className="flex items-center gap-1 mt-[3px]">
                         <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
                           <div className="h-full rounded-full" style={{
-                            width: `${Math.round((gang.morale / gang.maxMorale) * 100)}%`,
-                            background: gang.morale > gang.maxMorale * 0.5 ? player.color : 'var(--danger)',
+                            width: `${Math.round((gang.hp / gang.maxHp) * 100)}%`,
+                            background: gang.hp > gang.maxHp * 0.5 ? player.color : 'var(--danger)',
                           }} />
                         </div>
                         <span className="text-[9px] shrink-0" style={{ color: 'var(--text-dim)' }}>
-                          {gang.morale}/{gang.maxMorale}
+                          ❤️{gang.hp}/{gang.maxHp}
                         </span>
                       </div>
                       <div className="text-[9px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
-                        <span>⚔️{gang.combat}</span>
-                        <span>🎯{gang.ranged}</span>
-                        <span>👁️{gang.stealth}</span>
-                        <span>🏴{gang.control}</span>
+                        <span>⚔{gang.attack}</span>
+                        <span>🛡{gang.defense}</span>
+                        <span>🎭{gang.morale}</span>
+                        {gang.divine > 0 && <span>✝{gang.divine}</span>}
                       </div>
                     </div>
                     {!bulkMode && (
@@ -683,17 +685,17 @@ export default function SectorDetail({ sector, players, onClose, onMoveReady, on
                     <div className="flex items-center gap-1 mt-[3px]">
                       <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
                         <div className="h-full rounded-full" style={{
-                          width: `${Math.round((gang.morale / gang.maxMorale) * 100)}%`,
+                          width: `${Math.round((gang.hp / gang.maxHp) * 100)}%`,
                           background: 'var(--danger)',
                         }} />
                       </div>
                       <span className="text-[9px] shrink-0" style={{ color: 'var(--text-dim)' }}>
-                        {gang.morale}/{gang.maxMorale}
+                        ❤️{gang.hp}/{gang.maxHp}
                       </span>
                     </div>
                     <div className="text-[9px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
-                      <span>⚔️{gang.combat}</span>
-                      <span>🎯{gang.ranged}</span>
+                      <span>⚔{gang.attack}</span>
+                      <span>🛡{gang.defense}</span>
                       <span>👁️{gang.stealth}</span>
                       <span>🏴{gang.control}</span>
                     </div>
