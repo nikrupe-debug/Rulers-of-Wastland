@@ -24,7 +24,7 @@ export default function App() {
 
   const [sectorView, setSectorView]       = useState<[number, number] | null>(null);
   const [pendingDeploy, setPendingDeploy] = useState<Gang | null>(null);
-  const [pendingMove, setPendingMove]     = useState<{ gangId: string; from: [number, number] } | null>(null);
+  const [pendingMove, setPendingMove]     = useState<{ gangIds: string[]; from: [number, number] } | null>(null);
   const [gangHighlight, setGangHighlight] = useState<[number, number] | null>(null);
 
   if (players.length === 0) return <SetupScreen />;
@@ -43,9 +43,9 @@ export default function App() {
     }
   }
 
-  function handleMoveRequest(gangId: string, from: [number, number]) {
+  function handleMoveRequest(gangIds: string[], from: [number, number]) {
     setSectorView(null);
-    setPendingMove({ gangId, from });
+    setPendingMove({ gangIds, from });
   }
 
   function handleSectorClick(pos: [number, number]) {
@@ -63,7 +63,9 @@ export default function App() {
     if (pendingMove) {
       const targets = getAdjacentPositions(pendingMove.from);
       if (targets.some(t => t[0] === pos[0] && t[1] === pos[1])) {
-        assignAction(pendingMove.gangId, { type: 'move', target: pos });
+        for (const gangId of pendingMove.gangIds) {
+          assignAction(gangId, { type: 'move', target: pos });
+        }
         setPendingMove(null);
       }
       return;
@@ -146,14 +148,16 @@ export default function App() {
 
         {/* Move mode instruction */}
         {pendingMove && (() => {
-          const movingGang = players.flatMap(p => p.gangs).find(g => g.id === pendingMove.gangId);
+          const allGangs = players.flatMap(p => p.gangs);
+          const movingGangs = pendingMove.gangIds.map(id => allGangs.find(g => g.id === id)).filter(Boolean);
+          const label = movingGangs.length === 1
+            ? `${movingGangs[0]!.portrait} ${movingGangs[0]!.name}`
+            : `${movingGangs.map(g => g!.portrait).join('')} ${movingGangs.length} units`;
           return (
             <div className="flex items-center justify-between px-3 py-3 border-b"
               style={{ borderColor: 'var(--success)44', background: 'var(--success)18' }}>
               <div>
-                <div className="text-xs font-bold" style={{ color: 'var(--success)' }}>
-                  Move {movingGang?.portrait} {movingGang?.name}
-                </div>
+                <div className="text-xs font-bold" style={{ color: 'var(--success)' }}>Move {label}</div>
                 <div className="text-[10px] mt-[2px]" style={{ color: 'var(--text-dim)' }}>
                   Tap a glowing adjacent tile
                 </div>

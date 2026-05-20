@@ -12,7 +12,7 @@ interface Props {
   sector: Sector;
   players: Player[];
   onClose: () => void;
-  onMoveRequest?: (gangId: string, from: [number, number]) => void;
+  onMoveRequest?: (gangIds: string[], from: [number, number]) => void;
 }
 
 // ── Shared sub-components ────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ function GangCommandView({
 }: {
   gang: Gang;
   onBack: () => void;
-  onMoveRequest?: (gangId: string, from: [number, number]) => void;
+  onMoveRequest?: (gangIds: string[], from: [number, number]) => void;
 }) {
   const { players, grid, assignAction } = useGameStore();
   const human = players.find(p => p.isHuman)!;
@@ -193,7 +193,7 @@ function GangCommandView({
             {gang.position && (
               <button
                 type="button"
-                onClick={() => { onMoveRequest?.(gang.id, gang.position!); onBack(); }}
+                onClick={() => { onMoveRequest?.([gang.id], gang.position!); onBack(); }}
                 className="w-full flex justify-between items-center px-2 py-1 rounded text-xs font-bold"
                 style={{ background: 'var(--surface)', color: 'var(--success)', touchAction: 'manipulation' }}
               >
@@ -462,6 +462,8 @@ export default function SectorDetail({ sector, players, onClose, onMoveRequest }
 
   const [commandGangId, setCommandGangId] = useState<string | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
 
   const allGangsHere = players.flatMap(p =>
     p.gangs.filter(g =>
@@ -536,69 +538,124 @@ export default function SectorDetail({ sector, players, onClose, onMoveRequest }
 
         {/* Units */}
         <div>
+          {/* Units header */}
           {(() => {
             const visibleCount = humanGangsHere.length + (visibility !== 'none' ? enemyGangsHere.length : 0);
             return (
-              <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-dim)' }}>
-                Units {visibleCount === 0 ? '— None' : `(${visibleCount})`}
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-dim)' }}>
+                  Units {visibleCount === 0 ? '— None' : `(${visibleCount})`}
+                </div>
+                {humanGangsHere.length > 1 && (
+                  <button type="button"
+                    onClick={() => { setBulkMode(m => !m); setBulkSelectedIds(new Set()); }}
+                    className="text-[9px] px-1.5 py-0.5 rounded border"
+                    style={{
+                      borderColor: bulkMode ? 'var(--accent)' : 'var(--border)',
+                      color: bulkMode ? 'var(--accent)' : 'var(--text-dim)',
+                      touchAction: 'manipulation',
+                    }}>
+                    {bulkMode ? '✕ Cancel' : '☐ Select'}
+                  </button>
+                )}
               </div>
             );
           })()}
+
           {humanGangsHere.length === 0 && (visibility === 'none' || enemyGangsHere.length === 0) && (
             <p className="text-xs" style={{ color: 'var(--text-dim)' }}>No units here.</p>
           )}
 
-          {/* Your gangs — full detail + command */}
+          {/* Bulk action bar */}
+          {bulkMode && bulkSelectedIds.size > 0 && (
+            <div className="flex gap-2 mb-1 p-2 rounded border" style={{ borderColor: 'var(--success)44', background: 'var(--success)10' }}>
+              <span className="text-[10px] font-bold flex-1" style={{ color: 'var(--success)' }}>
+                {bulkSelectedIds.size} selected
+              </span>
+              <button type="button"
+                onClick={() => {
+                  const pos = humanGangsHere.find(({ gang }) => bulkSelectedIds.has(gang.id))?.gang.position;
+                  if (pos) onMoveRequest?.(Array.from(bulkSelectedIds), pos);
+                  setBulkMode(false); setBulkSelectedIds(new Set());
+                }}
+                className="text-[10px] px-2 py-0.5 rounded font-bold"
+                style={{ background: 'var(--success)', color: '#000', touchAction: 'manipulation' }}>
+                Move ▶
+              </button>
+            </div>
+          )}
+
+          {/* Your gangs */}
           {humanGangsHere.length > 0 && (
             <div className="flex flex-col gap-1 mb-1">
-              {humanGangsHere.map(({ gang, player }) => (
-                <button
-                  key={gang.id}
-                  type="button"
-                  onClick={() => setCommandGangId(gang.id)}
-                  className="flex items-center gap-2 p-2 rounded border text-left w-full"
-                  style={{
-                    borderColor: player.color + '55',
-                    background: player.color + '15',
-                    touchAction: 'manipulation',
-                  }}
-                >
-                  <span className="text-xl">{gang.portrait}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold truncate" style={{ color: player.color }}>{gang.name}</div>
-                    <div className="flex items-center gap-1 mt-[3px]">
-                      <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
-                        <div className="h-full rounded-full" style={{
-                          width: `${Math.round((gang.morale / gang.maxMorale) * 100)}%`,
-                          background: gang.morale > gang.maxMorale * 0.5 ? player.color : 'var(--danger)',
-                        }} />
-                      </div>
-                      <span className="text-[9px] shrink-0" style={{ color: 'var(--text-dim)' }}>
-                        {gang.morale}/{gang.maxMorale}
-                      </span>
-                    </div>
-                    <div className="text-[9px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
-                      <span>⚔️{gang.combat}</span>
-                      <span>🎯{gang.ranged}</span>
-                      <span>👁️{gang.stealth}</span>
-                      <span>🏴{gang.control}</span>
-                    </div>
-                  </div>
-                  <div className="shrink-0 flex flex-col items-end gap-1">
-                    {gang.currentAction ? (
-                      <span className="text-[8px] font-bold px-1 py-0.5 rounded"
-                        style={{ background: 'var(--success)' + '33', color: 'var(--success)' }}>
-                        {gang.currentAction.type.toUpperCase()}
-                      </span>
-                    ) : (
-                      <span className="text-[8px] px-1 py-0.5 rounded"
-                        style={{ background: 'var(--accent)' + '22', color: 'var(--accent)' }}>
-                        TAP TO ORDER
+              {humanGangsHere.map(({ gang, player }) => {
+                const isBulkSelected = bulkSelectedIds.has(gang.id);
+                return (
+                  <button
+                    key={gang.id}
+                    type="button"
+                    onClick={() => {
+                      if (bulkMode) {
+                        setBulkSelectedIds(prev => {
+                          const next = new Set(prev);
+                          next.has(gang.id) ? next.delete(gang.id) : next.add(gang.id);
+                          return next;
+                        });
+                      } else {
+                        setCommandGangId(gang.id);
+                      }
+                    }}
+                    className="flex items-center gap-2 p-2 rounded border text-left w-full"
+                    style={{
+                      borderColor: isBulkSelected ? player.color : player.color + '55',
+                      background: isBulkSelected ? player.color + '30' : player.color + '15',
+                      touchAction: 'manipulation',
+                    }}
+                  >
+                    {bulkMode && (
+                      <span className="text-base shrink-0" style={{ opacity: isBulkSelected ? 1 : 0.4 }}>
+                        {isBulkSelected ? '☑' : '☐'}
                       </span>
                     )}
-                  </div>
-                </button>
-              ))}
+                    <span className="text-xl">{gang.portrait}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold truncate" style={{ color: player.color }}>{gang.name}</div>
+                      <div className="flex items-center gap-1 mt-[3px]">
+                        <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                          <div className="h-full rounded-full" style={{
+                            width: `${Math.round((gang.morale / gang.maxMorale) * 100)}%`,
+                            background: gang.morale > gang.maxMorale * 0.5 ? player.color : 'var(--danger)',
+                          }} />
+                        </div>
+                        <span className="text-[9px] shrink-0" style={{ color: 'var(--text-dim)' }}>
+                          {gang.morale}/{gang.maxMorale}
+                        </span>
+                      </div>
+                      <div className="text-[9px] flex gap-2 mt-[2px]" style={{ color: 'var(--text-dim)' }}>
+                        <span>⚔️{gang.combat}</span>
+                        <span>🎯{gang.ranged}</span>
+                        <span>👁️{gang.stealth}</span>
+                        <span>🏴{gang.control}</span>
+                      </div>
+                    </div>
+                    {!bulkMode && (
+                      <div className="shrink-0 flex flex-col items-end gap-1">
+                        {gang.currentAction ? (
+                          <span className="text-[8px] font-bold px-1 py-0.5 rounded"
+                            style={{ background: 'var(--success)33', color: 'var(--success)' }}>
+                            {gang.currentAction.type.toUpperCase()}
+                          </span>
+                        ) : (
+                          <span className="text-[8px] px-1 py-0.5 rounded"
+                            style={{ background: 'var(--accent)22', color: 'var(--accent)' }}>
+                            TAP TO ORDER
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
 
