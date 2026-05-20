@@ -8,14 +8,14 @@ const TIER_LABEL = ['I', 'II', 'III'];
 
 // ── Preview cards ─────────────────────────────────────────────────────────────
 
-function BuildingCard({ item, gangIds, onBack }: { item: ActionItem; gangIds: string[]; onBack: () => void }) {
+function BuildingCard({ item, gangIds, onBack, onConfirm }: { item: ActionItem; gangIds: string[]; onBack: () => void; onConfirm: () => void }) {
   const { assignAction } = useGameStore();
   const bt = item.buildingType!;
   const isControl = item.action.type === 'control';
 
   function confirm() {
     for (const id of gangIds) assignAction(id, item.action);
-    onBack();
+    onConfirm();
   }
 
   return (
@@ -56,7 +56,7 @@ function BuildingCard({ item, gangIds, onBack }: { item: ActionItem; gangIds: st
   );
 }
 
-function TechCard({ item, gangIds, onBack }: { item: ActionItem; gangIds: string[]; onBack: () => void }) {
+function TechCard({ item, gangIds, onBack, onConfirm }: { item: ActionItem; gangIds: string[]; onBack: () => void; onConfirm: () => void }) {
   const { assignAction, players } = useGameStore();
   const human = players.find(p => p.isHuman)!;
   const action = item.action;
@@ -67,7 +67,7 @@ function TechCard({ item, gangIds, onBack }: { item: ActionItem; gangIds: string
 
   function confirm() {
     for (const id of gangIds) assignAction(id, item.action);
-    onBack();
+    onConfirm();
   }
 
   return (
@@ -105,10 +105,11 @@ function TechCard({ item, gangIds, onBack }: { item: ActionItem; gangIds: string
 
 interface Props {
   onGangSelect?: (pos: [number, number] | null) => void;
-  onMoveRequest?: (gangIds: string[], from: [number, number]) => void;
+  onMoveReady?: (gangIds: string[], from: [number, number]) => void;
+  onMoveClear?: () => void;
 }
 
-export default function ActionPanel({ onGangSelect, onMoveRequest }: Props) {
+export default function ActionPanel({ onGangSelect, onMoveReady, onMoveClear }: Props) {
   const { players, grid, assignAction, resolveOrders } = useGameStore();
   const human = players.find(p => p.isHuman)!;
   const ai    = players.find(p => !p.isHuman)!;
@@ -128,11 +129,20 @@ export default function ActionPanel({ onGangSelect, onMoveRequest }: Props) {
   const sharedPos = allSameTile ? positions[0] : null;
   const refGang = sharedPos ? selectedGangs.find(g => g.position != null) ?? null : selectedGangs[0] ?? null;
 
-  // Sync map highlight to any selected gang's position
+  // Sync map highlight + passive move targets to selection
   useEffect(() => {
-    if (selectedIds.size === 0) { onGangSelect?.(null); return; }
+    if (selectedIds.size === 0) {
+      onGangSelect?.(null);
+      onMoveClear?.();
+      return;
+    }
     const g = activeGangs.find(g => selectedIds.has(g.id));
     onGangSelect?.(g?.position ?? null);
+    if (sharedPos) {
+      onMoveReady?.(Array.from(selectedIds), sharedPos);
+    } else {
+      onMoveClear?.();
+    }
   }, [selectedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleGang(id: string) {
@@ -235,28 +245,15 @@ export default function ActionPanel({ onGangSelect, onMoveRequest }: Props) {
 
           {previewItem ? (
             previewItem.action.type === 'research' ? (
-              <TechCard item={previewItem} gangIds={selectedIdsArr} onBack={() => setPreviewItem(null)} />
+              <TechCard item={previewItem} gangIds={selectedIdsArr} onBack={() => setPreviewItem(null)}
+                onConfirm={() => { setSelectedIds(new Set()); setPreviewItem(null); }} />
             ) : (
-              <BuildingCard item={previewItem} gangIds={selectedIdsArr} onBack={() => setPreviewItem(null)} />
+              <BuildingCard item={previewItem} gangIds={selectedIdsArr} onBack={() => setPreviewItem(null)}
+                onConfirm={() => { setSelectedIds(new Set()); setPreviewItem(null); }} />
             )
           ) : (
             <>
-              {/* Move — only when same tile */}
-              {sharedPos ? (
-                <button type="button"
-                  onClick={() => { onMoveRequest?.(selectedIdsArr, sharedPos); setSelectedIds(new Set()); }}
-                  className="w-full flex justify-between items-center px-2 py-1.5 rounded text-xs font-bold"
-                  style={{ background: 'var(--surface)', color: 'var(--success)', touchAction: 'manipulation' }}>
-                  <span>Move{selectedIds.size > 1 ? ` (${selectedIds.size})` : ''}</span>
-                  <span className="text-[10px]">tap map ▶</span>
-                </button>
-              ) : selectedIds.size > 1 && (
-                <div className="text-[10px] px-2 py-1 rounded" style={{ background: 'var(--surface2)', color: 'var(--text-dim)' }}>
-                  Move together: select units on the same tile
-                </div>
-              )}
-
-              {/* Other action categories — based on reference gang's position */}
+              {/* Action categories — based on reference gang's position */}
               {refGang && (() => {
                 const all = getGangActions(refGang, human, ai, grid);
                 const byKey = all.reduce<Record<string, ActionItem[]>>((acc, item) => {

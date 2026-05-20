@@ -117,6 +117,8 @@ export interface Player {
   aiDifficulty?: AIDifficulty;
   cash: number;
   prestige: number;
+  religion: number;
+  wanted: number;
   gangs: Gang[];
   hqSector: [number, number];
   color: string;

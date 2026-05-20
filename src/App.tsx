@@ -24,13 +24,12 @@ export default function App() {
 
   const [sectorView, setSectorView]       = useState<[number, number] | null>(null);
   const [pendingDeploy, setPendingDeploy] = useState<Gang | null>(null);
-  const [pendingMove, setPendingMove]     = useState<{ gangIds: string[]; from: [number, number] } | null>(null);
+  const [moveReady, setMoveReady]         = useState<{ gangIds: string[]; from: [number, number] } | null>(null);
   const [gangHighlight, setGangHighlight] = useState<[number, number] | null>(null);
 
   if (players.length === 0) return <SetupScreen />;
 
   const human = players.find(p => p.isHuman)!;
-  const ai    = players.find(p => !p.isHuman)!;
 
   const ownedSectors = grid.sectors.flat().filter(s => s.owner === human.id);
 
@@ -43,9 +42,12 @@ export default function App() {
     }
   }
 
-  function handleMoveRequest(gangIds: string[], from: [number, number]) {
-    setSectorView(null);
-    setPendingMove({ gangIds, from });
+  function handleMoveReady(gangIds: string[], from: [number, number]) {
+    setMoveReady({ gangIds, from });
+  }
+
+  function handleMoveClear() {
+    setMoveReady(null);
   }
 
   function handleSectorClick(pos: [number, number]) {
@@ -60,21 +62,22 @@ export default function App() {
       return;
     }
 
-    if (pendingMove) {
-      const targets = getAdjacentPositions(pendingMove.from);
+    if (moveReady) {
+      const targets = getAdjacentPositions(moveReady.from);
       if (targets.some(t => t[0] === pos[0] && t[1] === pos[1])) {
-        for (const gangId of pendingMove.gangIds) {
+        for (const gangId of moveReady.gangIds) {
           assignAction(gangId, { type: 'move', target: pos });
         }
-        setPendingMove(null);
+        setMoveReady(null);
+        setSectorView(null);
+        return;
       }
-      return;
     }
 
     setSectorView(pos);
   }
 
-  const moveTargets = pendingMove ? getAdjacentPositions(pendingMove.from) : [];
+  const moveTargets = moveReady ? getAdjacentPositions(moveReady.from) : [];
 
   const viewedSector = sectorView ? grid.sectors[sectorView[0]]?.[sectorView[1]] : null;
 
@@ -92,22 +95,21 @@ export default function App() {
       </header>
 
       {/* HUD */}
-      <div className="flex justify-between px-3 py-2 text-xs border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex flex-col gap-[2px]">
+      <div className="px-3 py-2 border-b text-xs" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex items-center justify-between mb-1">
           <span className="font-bold" style={{ color: human.color }}>{human.name}</span>
-          <span>${human.cash} · {human.prestige}★ · {human.gangs.filter(g => g.status !== 'dead').length} gangs</span>
+          <span style={{ color: alertSystem.level >= 3 ? 'var(--danger)' : 'var(--text-dim)', letterSpacing: '-1px' }}>
+            {ALERT_LABELS[alertSystem.level]} {'▮'.repeat(alertSystem.level)}{'▯'.repeat(5 - alertSystem.level)}
+          </span>
         </div>
-        <div className="text-center">
-          <div className="text-[9px] font-bold" style={{ color: alertSystem.level >= 4 ? 'var(--danger)' : 'var(--text-dim)' }}>
-            {ALERT_LABELS[alertSystem.level]}
-          </div>
-          <div className="font-bold text-sm" style={{ color: alertSystem.level >= 3 ? 'var(--danger)' : 'var(--text-dim)' }}>
-            {'▮'.repeat(alertSystem.level)}{'▯'.repeat(5 - alertSystem.level)}
-          </div>
-        </div>
-        <div className="flex flex-col gap-[2px] items-end">
-          <span className="font-bold" style={{ color: ai.color }}>{ai.name}</span>
-          <span>${ai.cash} · {ai.prestige}★ · {ai.gangs.filter(g => g.status !== 'dead').length} gangs</span>
+        <div className="flex items-center gap-3 flex-wrap" style={{ color: 'var(--text)' }}>
+          <span><span style={{ color: 'var(--text-dim)' }}>$ </span>{human.cash}</span>
+          <span><span style={{ color: 'var(--text-dim)' }}>⚔ </span>{human.gangs.filter(g => g.status !== 'dead').length}</span>
+          <span><span style={{ color: 'var(--text-dim)' }}>★ </span>{human.prestige}</span>
+          <span><span style={{ color: 'var(--text-dim)' }}>✝ </span>{human.religion}</span>
+          <span style={{ color: human.wanted > 0 ? 'var(--danger)' : undefined }}>
+            <span style={{ color: 'var(--text-dim)' }}>⚠ </span>{human.wanted}
+          </span>
         </div>
       </div>
 
@@ -146,39 +148,15 @@ export default function App() {
           </div>
         )}
 
-        {/* Move mode instruction */}
-        {pendingMove && (() => {
-          const allGangs = players.flatMap(p => p.gangs);
-          const movingGangs = pendingMove.gangIds.map(id => allGangs.find(g => g.id === id)).filter(Boolean);
-          const label = movingGangs.length === 1
-            ? `${movingGangs[0]!.portrait} ${movingGangs[0]!.name}`
-            : `${movingGangs.map(g => g!.portrait).join('')} ${movingGangs.length} units`;
-          return (
-            <div className="flex items-center justify-between px-3 py-3 border-b"
-              style={{ borderColor: 'var(--success)44', background: 'var(--success)18' }}>
-              <div>
-                <div className="text-xs font-bold" style={{ color: 'var(--success)' }}>Move {label}</div>
-                <div className="text-[10px] mt-[2px]" style={{ color: 'var(--text-dim)' }}>
-                  Tap a glowing adjacent tile
-                </div>
-              </div>
-              <button type="button" onClick={() => setPendingMove(null)}
-                className="text-xs px-2 py-1 rounded border"
-                style={{ borderColor: 'var(--border)', color: 'var(--text-dim)', touchAction: 'manipulation' }}>
-                Cancel
-              </button>
-            </div>
-          );
-        })()}
-
-        {!pendingDeploy && !pendingMove && viewedSector ? (
+        {!pendingDeploy && viewedSector ? (
           <SectorDetail
             sector={viewedSector}
             players={players}
             onClose={() => setSectorView(null)}
-            onMoveRequest={handleMoveRequest}
+            onMoveReady={handleMoveReady}
+            onMoveClear={handleMoveClear}
           />
-        ) : !pendingDeploy && !pendingMove && winner ? (
+        ) : !pendingDeploy && winner ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
             <div className="text-4xl">{winner.isHuman ? '🏆' : '💀'}</div>
             <div className="font-bold text-lg" style={{ color: winner.isHuman ? 'var(--accent)' : 'var(--danger)' }}>
@@ -194,14 +172,15 @@ export default function App() {
               Play Again
             </button>
           </div>
-        ) : !pendingDeploy && !pendingMove && phase === 'recruit' ? (
+        ) : !pendingDeploy && phase === 'recruit' ? (
           <RecruitPanel onHireRequest={handleHireRequest} />
-        ) : !pendingDeploy && !pendingMove && phase === 'orders' ? (
+        ) : !pendingDeploy && phase === 'orders' ? (
           <ActionPanel
             onGangSelect={pos => setGangHighlight(pos)}
-            onMoveRequest={handleMoveRequest}
+            onMoveReady={handleMoveReady}
+            onMoveClear={handleMoveClear}
           />
-        ) : !pendingDeploy && !pendingMove ? (
+        ) : !pendingDeploy ? (
           <EventLog />
         ) : null}
       </div>

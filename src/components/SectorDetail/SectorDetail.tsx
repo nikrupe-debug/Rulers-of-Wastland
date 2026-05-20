@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import type { Sector, Player, Gang } from '../../types/game';
 import { BUILDING_ICONS, BUILDING_LABELS, BUILDING_DESCRIPTIONS } from '../../data/buildings';
@@ -12,7 +12,8 @@ interface Props {
   sector: Sector;
   players: Player[];
   onClose: () => void;
-  onMoveRequest?: (gangIds: string[], from: [number, number]) => void;
+  onMoveReady?: (gangIds: string[], from: [number, number]) => void;
+  onMoveClear?: () => void;
 }
 
 // ── Shared sub-components ────────────────────────────────────────────────────
@@ -32,11 +33,12 @@ function StatBar({ label, value, max }: { label: string; value: number; max: num
 // ── GangCommandView — embedded action panel for one gang ────────────────────
 
 function GangCommandView({
-  gang, onBack, onMoveRequest,
+  gang, onBack, onMoveReady, onMoveClear,
 }: {
   gang: Gang;
   onBack: () => void;
-  onMoveRequest?: (gangIds: string[], from: [number, number]) => void;
+  onMoveReady?: (gangIds: string[], from: [number, number]) => void;
+  onMoveClear?: () => void;
 }) {
   const { players, grid, assignAction } = useGameStore();
   const human = players.find(p => p.isHuman)!;
@@ -44,6 +46,12 @@ function GangCommandView({
 
   const [openCats, setOpenCats]     = useState<Set<string>>(new Set());
   const [previewItem, setPreviewItem] = useState<ActionItem | null>(null);
+
+  // Passively highlight adjacent tiles while this gang is in view
+  useEffect(() => {
+    if (gang.position) onMoveReady?.([gang.id], gang.position);
+    return () => onMoveClear?.();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const actions = getGangActions(gang, human, ai, grid);
   const byKey = actions.reduce<Record<string, ActionItem[]>>((acc, item) => {
@@ -189,18 +197,6 @@ function GangCommandView({
         {/* Action categories */}
         {!previewItem && (
           <>
-            {/* Move — tap map */}
-            {gang.position && (
-              <button
-                type="button"
-                onClick={() => { onMoveRequest?.([gang.id], gang.position!); onBack(); }}
-                className="w-full flex justify-between items-center px-2 py-1 rounded text-xs font-bold"
-                style={{ background: 'var(--surface)', color: 'var(--success)', touchAction: 'manipulation' }}
-              >
-                <span>Move</span>
-                <span className="text-[10px]">tap map ▶</span>
-              </button>
-            )}
             {CATEGORIES.filter(c => c.key !== 'move' && byKey[c.key]?.length).map(c => (
               <div key={c.key}>
                 <button
@@ -451,7 +447,7 @@ function BuildingInteractionView({
 
 // ── SectorDetail ─────────────────────────────────────────────────────────────
 
-export default function SectorDetail({ sector, players, onClose, onMoveRequest }: Props) {
+export default function SectorDetail({ sector, players, onClose, onMoveReady, onMoveClear }: Props) {
   const { grid } = useGameStore();
   const human = players.find(p => p.isHuman)!;
   const owner = players.find(p => p.id === sector.owner);
@@ -475,6 +471,16 @@ export default function SectorDetail({ sector, players, onClose, onMoveRequest }
   const humanGangsHere = allGangsHere.filter(({ player }) => player.isHuman);
   const enemyGangsHere = allGangsHere.filter(({ player }) => !player.isHuman);
 
+  // Drive passive move targets from bulk selection
+  useEffect(() => {
+    if (bulkMode && bulkSelectedIds.size > 0) {
+      const pos = humanGangsHere.find(({ gang }) => bulkSelectedIds.has(gang.id))?.gang.position;
+      if (pos) onMoveReady?.(Array.from(bulkSelectedIds), pos);
+    } else {
+      onMoveClear?.();
+    }
+  }, [bulkSelectedIds, bulkMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const commandGang = commandGangId ? human.gangs.find(g => g.id === commandGangId) ?? null : null;
   const selectedBuilding = selectedBuildingId ? sector.buildings.find(b => b.id === selectedBuildingId) ?? null : null;
 
@@ -483,7 +489,8 @@ export default function SectorDetail({ sector, players, onClose, onMoveRequest }
       <GangCommandView
         gang={commandGang}
         onBack={() => setCommandGangId(null)}
-        onMoveRequest={onMoveRequest}
+        onMoveReady={onMoveReady}
+        onMoveClear={onMoveClear}
       />
     );
   }
@@ -568,20 +575,10 @@ export default function SectorDetail({ sector, players, onClose, onMoveRequest }
 
           {/* Bulk action bar */}
           {bulkMode && bulkSelectedIds.size > 0 && (
-            <div className="flex gap-2 mb-1 p-2 rounded border" style={{ borderColor: 'var(--success)44', background: 'var(--success)10' }}>
-              <span className="text-[10px] font-bold flex-1" style={{ color: 'var(--success)' }}>
-                {bulkSelectedIds.size} selected
+            <div className="mb-1 p-2 rounded border" style={{ borderColor: 'var(--success)44', background: 'var(--success)10' }}>
+              <span className="text-[10px] font-bold" style={{ color: 'var(--success)' }}>
+                {bulkSelectedIds.size} selected · tap a green tile to move
               </span>
-              <button type="button"
-                onClick={() => {
-                  const pos = humanGangsHere.find(({ gang }) => bulkSelectedIds.has(gang.id))?.gang.position;
-                  if (pos) onMoveRequest?.(Array.from(bulkSelectedIds), pos);
-                  setBulkMode(false); setBulkSelectedIds(new Set());
-                }}
-                className="text-[10px] px-2 py-0.5 rounded font-bold"
-                style={{ background: 'var(--success)', color: '#000', touchAction: 'manipulation' }}>
-                Move ▶
-              </button>
             </div>
           )}
 
