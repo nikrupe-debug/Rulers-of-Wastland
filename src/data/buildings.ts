@@ -1,7 +1,8 @@
 import type { Building, BuildingBonus, BuildingType } from '../types/game';
 
 export const BUILDING_BONUSES: Record<BuildingType, BuildingBonus> = {
-  communication_center: { revealsAdjacentTiles: true },
+  residency:            { incomeBonus: 10, reputationPerTurn: 1 },
+  communication_center: { revealsAdjacentTiles: true, reputationPerTurn: 5 },
   casino:               { incomeBonus: 150, reputationPerTurn: 2 },
   altar:                { prayBonus: 5 },
   laboratory:           { researchBonus: 5 },
@@ -16,6 +17,7 @@ export const BUILDING_BONUSES: Record<BuildingType, BuildingBonus> = {
 };
 
 export const BUILDING_LABELS: Record<BuildingType, string> = {
+  residency:            'Residency',
   communication_center: 'Comm Center',
   casino:               'Casino',
   altar:                'Altar',
@@ -31,7 +33,8 @@ export const BUILDING_LABELS: Record<BuildingType, string> = {
 };
 
 export const BUILDING_DESCRIPTIONS: Record<BuildingType, string> = {
-  communication_center: 'Reveals all adjacent sectors',
+  residency:            '+$10 income · +1 reputation/turn',
+  communication_center: 'Reveals adjacent sectors · +5 rep/turn · +5 rep per conquest',
   casino:               '+$150 income · +2 reputation/turn',
   altar:                '+5 to Pray action on this tile',
   laboratory:           '+5 research when studying here',
@@ -46,6 +49,7 @@ export const BUILDING_DESCRIPTIONS: Record<BuildingType, string> = {
 };
 
 export const BUILDING_ICONS: Record<BuildingType, string> = {
+  residency:            '🏘️',
   communication_center: '📡',
   casino:               '🎰',
   altar:                '⛪',
@@ -60,7 +64,9 @@ export const BUILDING_ICONS: Record<BuildingType, string> = {
   armory:               '⚔️',
 };
 
+// Residency appears 4× to make it the most common building (~30% of slots)
 const ALL_TYPES: BuildingType[] = [
+  'residency', 'residency', 'residency', 'residency',
   'communication_center', 'casino',    'altar',         'laboratory',
   'weaponry',             'military_base', 'police_station', 'hospital',
   'taxing_center',        'market',    'black_market',  'armory',

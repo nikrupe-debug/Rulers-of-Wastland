@@ -2,6 +2,7 @@ export type Phase = 'recruit' | 'orders' | 'resolution' | 'end';
 export type GangStatus = 'active' | 'hiding' | 'healing' | 'dead';
 export type GangTier = 1 | 2 | 3 | 4 | 5 | 6;
 export type BuildingType =
+  | 'residency'
   | 'communication_center' | 'casino'    | 'altar'         | 'laboratory'
   | 'weaponry'             | 'military_base' | 'police_station' | 'hospital'
   | 'taxing_center'        | 'market'    | 'black_market'  | 'armory';

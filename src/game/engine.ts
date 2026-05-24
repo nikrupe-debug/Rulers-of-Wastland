@@ -86,6 +86,15 @@ export function resolveFullTurn(state: GameState): ResolutionResult {
           type: 'control',
         });
         if (prevOwner && prevOwner !== player.id) alertDelta += 1;
+
+        // Communication center bonus: +5 reputation per conquest
+        const hasCommCenter = grid.sectors.flat().some(s =>
+          s.buildings.some(b => b.type === 'communication_center' && b.owner === player.id),
+        );
+        if (hasCommCenter) {
+          player.prestige += 5;
+          log.push({ message: `${player.name} comm network reports conquest — +5 reputation!`, type: 'control' });
+        }
       } else {
         log.push({
           message: `${gang.name} contests [${gang.position}] (${sector.controlProgress}/${TERRITORY_THRESHOLD})`,
