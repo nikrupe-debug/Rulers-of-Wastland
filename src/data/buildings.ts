@@ -64,13 +64,15 @@ export const BUILDING_ICONS: Record<BuildingType, string> = {
   armory:               '⚔️',
 };
 
-// Residency appears 4× to make it the most common building (~30% of slots)
-const ALL_TYPES: BuildingType[] = [
-  'residency', 'residency', 'residency', 'residency',
+const SPECIAL_TYPES: BuildingType[] = [
   'communication_center', 'casino',    'altar',         'laboratory',
   'weaponry',             'military_base', 'police_station', 'hospital',
   'taxing_center',        'market',    'black_market',  'armory',
 ];
+
+function pickSpecial(): BuildingType {
+  return SPECIAL_TYPES[Math.floor(Math.random() * SPECIAL_TYPES.length)];
+}
 
 let _buildingCounter = 0;
 
@@ -88,10 +90,14 @@ export function createBuilding(type: BuildingType): Building {
   };
 }
 
-export function randomBuildingTypes(count: number, seed: number): BuildingType[] {
-  const types: BuildingType[] = [];
-  for (let i = 0; i < count; i++) {
-    types.push(ALL_TYPES[(seed + i * 3) % ALL_TYPES.length]);
+// 80% of sectors: 2 residency + 1 special
+// 20% of sectors: 40% → 1 residency + 2 specials; 60% → 2 residency + 1 special
+export function randomBuildingTypes(_count: number, _seed: number): BuildingType[] {
+  const isRareTile     = Math.random() < 0.20;
+  const doubleSpecial  = isRareTile && Math.random() < 0.40;
+
+  if (doubleSpecial) {
+    return ['residency', pickSpecial(), pickSpecial()];
   }
-  return types;
+  return ['residency', 'residency', pickSpecial()];
 }
