@@ -7,6 +7,16 @@ const BASE_INCOME = 100;
 const TIER_LABEL = ['I', 'II', 'III'];
 const EQUIP_ICONS: Record<string, string> = { weapon: '⚔', armor: '🛡', gadget: '🔧' };
 
+const RARITY_COLOR: Record<string, string> = {
+  common:  'var(--text-dim)',
+  rare:    '#4a9eff',
+  unique:  'var(--accent)',
+  illegal: 'var(--danger)',
+};
+const RARITY_LABEL: Record<string, string> = {
+  common: 'Common', rare: 'Rare', unique: 'Unique', illegal: '⚠ Illegal',
+};
+
 interface Props { onClose: () => void }
 
 export default function PlayerCard({ onClose }: Props) {
@@ -165,17 +175,42 @@ export default function PlayerCard({ onClose }: Props) {
                   <div className="text-[10px] mb-1" style={{ color: 'var(--text-dim)' }}>
                     {gang.portrait} {gang.name}
                   </div>
-                  <div className="flex flex-col gap-[2px]">
-                    {gang.equipment.map(e => (
-                      <div key={e.id} className="flex items-center gap-2 px-2 py-1 rounded"
-                        style={{ background: 'var(--surface2)' }}>
-                        <span className="shrink-0">{EQUIP_ICONS[e.type] ?? '🔩'}</span>
-                        <span className="text-xs font-bold flex-1">{e.name}</span>
-                        <span className="text-[10px] shrink-0" style={{ color: 'var(--text-dim)' }}>
-                          {e.uses === 'unlimited' ? '∞' : `${e.uses}×`}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="flex flex-col gap-1">
+                    {gang.equipment.map(e => {
+                      const rarityColor = RARITY_COLOR[e.rarity] ?? 'var(--text-dim)';
+                      const bonusStr = Object.entries(e.bonus)
+                        .map(([k, v]) => `${(v as number) > 0 ? '+' : ''}${v as number} ${k}`)
+                        .join(', ');
+                      return (
+                        <div key={e.id} className="rounded border px-2 py-1.5"
+                          style={{ borderColor: rarityColor + '44', background: rarityColor + '10' }}>
+                          <div className="flex items-center gap-2">
+                            <span className="shrink-0">{EQUIP_ICONS[e.type] ?? '🔩'}</span>
+                            <span className="text-xs font-bold flex-1" style={{ color: rarityColor }}>{e.name}</span>
+                            <span className="text-[9px] px-1 py-0.5 rounded font-bold shrink-0"
+                              style={{ background: rarityColor + '22', color: rarityColor }}>
+                              {RARITY_LABEL[e.rarity]}
+                            </span>
+                            <span className="text-[10px] shrink-0" style={{ color: 'var(--text-dim)' }}>
+                              {e.uses === 'unlimited' ? '∞' : `${e.uses}×`}
+                            </span>
+                          </div>
+                          {bonusStr && (
+                            <div className="text-[9px] mt-0.5" style={{ color: 'var(--text-dim)' }}>{bonusStr}</div>
+                          )}
+                          {e.wantedCost && (
+                            <div className="text-[9px] mt-0.5" style={{ color: 'var(--danger)' }}>
+                              +{e.wantedCost} wanted/turn
+                            </div>
+                          )}
+                          {e.flavor && (
+                            <div className="text-[9px] mt-0.5 italic" style={{ color: 'var(--text-dim)', opacity: 0.7 }}>
+                              {e.flavor}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}

@@ -7,6 +7,7 @@ export type BuildingType =
   | 'weaponry'             | 'military_base' | 'police_station' | 'hospital'
   | 'taxing_center'        | 'market'    | 'black_market'  | 'armory';
 export type EquipmentType = 'weapon' | 'armor' | 'gadget';
+export type EquipmentRarity = 'common' | 'rare' | 'unique' | 'illegal';
 export type VictoryType = 'elimination' | 'domination' | 'territory' | 'greed' | 'prestige';
 export type AlertLevel = 0 | 1 | 2 | 3 | 4 | 5;
 export type AIDifficulty = 'easy' | 'medium' | 'hard';
@@ -54,11 +55,18 @@ export interface Building {
 export interface Equipment {
   id: string;
   name: string;
+  flavor: string;
   type: EquipmentType;
+  rarity: EquipmentRarity;
   cost: number;
-  tier: number;
+  tier: number;           // 1=common, 2=rare, 3=unique, 4=illegal
   bonus: GangStatBonus;
   uses: number | 'unlimited';
+  wantedCost?: number;          // +wanted per turn while carried
+  skillRef?: string;            // embedded skill placeholder (unique items)
+  permanentHpLoss?: number;     // HP loss applied on equip (illegal)
+  permanentStatPenalty?: GangStatBonus; // stat loss applied on equip (illegal)
+  cannotRemove?: boolean;       // can't unequip once worn (illegal)
 }
 
 export type GangAction =

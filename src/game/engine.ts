@@ -336,6 +336,18 @@ export function resolveFullTurn(state: GameState): ResolutionResult {
     }
     if (repDelta !== 0) player.prestige = Math.max(0, player.prestige + repDelta);
 
+    // Illegal equipment: raise wanted per turn while carried
+    for (const gang of player.gangs.filter(g => g.status !== 'dead')) {
+      for (const item of gang.equipment) {
+        if (item.wantedCost) {
+          player.wanted += item.wantedCost;
+          if (player.isHuman) {
+            log.push({ message: `⚠ ${gang.name} carries ${item.name} — +${item.wantedCost} wanted`, type: 'system' });
+          }
+        }
+      }
+    }
+
     const activeGangs = player.gangs.filter(g => g.status !== 'dead');
     const maintenance = activeGangs.reduce((sum, g) => sum + g.maintenanceCost, 0);
     player.cash += income - maintenance;
